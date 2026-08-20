@@ -2,9 +2,9 @@ QT += widgets core
 
 CONFIG += c++17
 
-SOURCES += main.cpp md.cpp
+SOURCES += main.cpp md.cpp selftest.cpp
 
-HEADERS += md.hpp
+HEADERS += md.hpp evaluator.hpp selftest.hpp
 
 LIBS += -ldwmapi -lpsapi
 
