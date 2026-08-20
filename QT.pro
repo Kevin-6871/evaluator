@@ -2,7 +2,7 @@ QT += widgets core
 
 CONFIG += c++17
 
-SOURCES += main.cpp md.cpp selftest.cpp
+SOURCES += main.cpp md.cpp selftest.cpp evaluator.cpp
 
 HEADERS += md.hpp evaluator.hpp selftest.hpp
 
