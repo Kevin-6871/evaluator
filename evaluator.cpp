@@ -235,7 +235,7 @@ int main() {
 								.arg(proc.errorString());
 		QString stderrMsg = QString::fromLocal8Bit(proc.readAllStandardError());
 
-		output += "运行评测进程失败 (子进程启动失败或中断)。\n";
+		output += "运行评测进程失败 (子进程启动失败或中断).\n";
 		output += "系统报告: " + errorInfo + "\n";
 		if (!stderrMsg.isEmpty()) {
 			output += "程序底层报错信息 (stderr):\n" + stderrMsg + "\n";
@@ -244,7 +244,7 @@ int main() {
 	}
 
 	if (proc.exitCode() != 0) {
-		output += "评测子进程 (wrapper.exe) 异常退出，退出码: " + QString::number(proc.exitCode()) + "\n";
+		output += "评测子进程 (wrapper.exe) 异常退出, 退出码: " + QString::number(proc.exitCode()) + "\n";
 		QString stderrMsg = QString::fromLocal8Bit(proc.readAllStandardError());
 		if (!stderrMsg.isEmpty()) {
 			output += "程序报错信息 (stderr):\n" + stderrMsg + "\n";
@@ -254,7 +254,7 @@ int main() {
 
 	QFile resultFile(m_testDir + "time_result.txt");
 	if (!resultFile.open(QIODevice::ReadOnly | QIODevice::Text)) {
-		output += "错误：找不到 time_result.txt，评测可能因为路径或环境中断。\n";
+		output += "错误: 找不到 time_result.txt, 评测可能因为路径或环境中断.\n";
 		QString stderrMsg = QString::fromLocal8Bit(proc.readAllStandardError());
 		if (!stderrMsg.isEmpty()) {
 			output += "程序底层输出:\n" + stderrMsg + "\n";
@@ -285,11 +285,11 @@ int main() {
 	QFile outFile(m_testDir + "source.out");
 	QFile ansFile(m_testDir + "source.ans");
 	if (!outFile.exists()) {
-		output += "警告：程序未生成输出文件\n";
+		output += "警告: 程序未生成输出文件\n";
 		return true;
 	}
 	if (!ansFile.exists()) {
-		output += "警告：缺少标准答案文件\n";
+		output += "警告: 缺少标准答案文件\n";
 		return true;
 	}
 	if (outFile.open(QIODevice::ReadOnly | QIODevice::Text) &&

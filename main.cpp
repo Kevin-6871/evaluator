@@ -116,6 +116,7 @@ class MicaWindow : public QMainWindow {
 			}
 		});
 		m_browseBtn = new QPushButton("📁 浏览", this);
+		m_browseBtn->setToolTip("使用文件资源管理器选择文件.");
 		connect(m_browseBtn, &QPushButton::clicked, this, [this]() {
 			QString file = QFileDialog::getOpenFileName(this, "选择 C++ 源文件", "", "C++ 文件 (*.cpp);;所有文件 (*.*)");
 			if (!file.isEmpty()) {
@@ -130,18 +131,18 @@ class MicaWindow : public QMainWindow {
 		QHBoxLayout *paramLayout = new QHBoxLayout();
 		paramLayout->setSpacing(4);
 		QLabel *flagsLabel = new QLabel("编译参数:", this);
-		flagsLabel->setToolTip("传给编译器的参数，例如 -std=c++17 -O2 -Wall。");
+		flagsLabel->setToolTip("传给编译器的参数, 例如 -std=c++17 -O2 -Wall.");
 		m_flagsEdit = new CustomLineEdit(this);
 		m_flagsEdit->setText("-std=c++17 -O2 -Wall");
 		m_flagsEdit->setToolTip(flagsLabel->toolTip());
 		QLabel *coreLabel = new QLabel("核心:", this);
-		coreLabel->setToolTip("把被评测程序绑定的 CPU 核心编号。\n-1 = 不绑定，由系统调度。");
+		coreLabel->setToolTip("把被评测程序绑定的 CPU 核心编号.\n-1 = 不绑定, 由系统调度.");
 		m_coreEdit = new CustomLineEdit(this);
 		m_coreEdit->setText("-1");
 		m_coreEdit->setFixedWidth(60);
 		m_coreEdit->setToolTip(coreLabel->toolTip());
 		m_runBtn = new QPushButton("开始评测", this);
-		m_runBtn->setToolTip("编译并运行当前 C++ 源文件，按上方时限/内存/参考机参数评测。");
+		m_runBtn->setToolTip("编译并运行当前 C++ 源文件, 按上方时限/内存/参考机参数评测.");
 		m_runBtn->setEnabled(false);
 		connect(m_runBtn, &QPushButton::clicked, this, [this]() {
 			if (m_currentSource.isEmpty()) return;
@@ -250,7 +251,7 @@ class MicaWindow : public QMainWindow {
 		m_refIPCEdit = new CustomLineEdit(this);
 		m_refIPCEdit->setText("3.0");
 		m_refIPCEdit->setFixedWidth(48);
-		QLabel *ipcStar = new QLabel("IPC ×", this);
+		QLabel *ipcStar = new QLabel("IPC×", this);
 		m_refGHEdit = new CustomLineEdit(this);
 		m_refGHEdit->setText("3.0");
 		m_refGHEdit->setFixedWidth(48);
@@ -261,22 +262,22 @@ class MicaWindow : public QMainWindow {
 		});
 
 		// 参数说明 (悬停提示)
-		limitLabel->setToolTip("题目标准时限(ms)，以参考机刻度计。\n"
-			"本地等效时限 = 时限 × 语言因子 ÷ 速度因子，\n"
-			"超过即判 TLE-CPU。");
-		langLabel->setToolTip("语言速度因子：C/C++=1.00。\n"
-			"解释型/慢语言请调大(如 Java=2, Python=5)以放宽时限。");
-		wallLabel->setToolTip("墙钟硬时限 = 软时限(CPU) × 本比例(默认1.5)。\n"
-			"休眠或 IO 卡死的程序虽然不消耗 CPU，也会被墙钟硬时限终止，判 TLE-WALL。");
-		memLabel->setToolTip("内存上限(MB)。评测结束时若峰值专用内存超过该值，判 MLE。\n"
-			"(测量口径，不主动掐断分配)");
-		refLabel->setToolTip("参考 OJ 机器单核算力：IPS = IPC × GHz × 10^9 条指令/秒。\n"
-			"默认 3.0 IPC × 3.0 GHz = 9.0e9 指令/秒。\n"
-			"本机各域指令吞吐与参考机之比即为该域因子。");
-		ipcStar->setToolTip("参考机平均每周期完成的指令数(IPC)。");
-		ghzUnit->setToolTip("参考机主频(GHz)。");
+		limitLabel->setToolTip("题目标准时限(ms), 以参考机刻度计.\n"
+			"本地等效时限 = 时限 x 语言因子 / 速度因子,\n"
+			"超过即判 TLE-CPU.");
+		langLabel->setToolTip("语言速度因子: C/C++=1.00.\n"
+			"解释型/慢语言请调大(如 Java=2, Python=5)以放宽时限.");
+		wallLabel->setToolTip("墙钟硬时限 = 软时限(CPU) x 本比例(默认1.5).\n"
+			"休眠或 IO 卡死的程序虽然不消耗 CPU, 也会被墙钟硬时限终止, 判 TLE-WALL.");
+		memLabel->setToolTip("内存上限(MB). 评测结束时若峰值专用内存超过该值, 判 MLE.\n"
+			"(测量口径, 不主动掐断分配)");
+		refLabel->setToolTip("参考 OJ 机器单核算力: IPS = IPC x GHz x 10^9 条指令/秒.\n"
+			"默认 3.0 IPC x 3.0 GHz = 9.0e9 指令/秒.\n"
+			"本机各域指令吞吐与参考机之比即为该域因子.");
+		ipcStar->setToolTip("参考机平均每周期完成的指令数(IPC).");
+		ghzUnit->setToolTip("参考机主频(GHz).");
 		m_calibBtn->setToolTip("用上方参考机参数重新测量本机 4 个域(整型/浮点/内存/分支)\n"
-			"的指令吞吐并重算综合速度因子。");
+			"的指令吞吐并重算综合速度因子.");
 		m_ojLimitEdit->setToolTip(limitLabel->toolTip());
 		m_langFactorEdit->setToolTip(langLabel->toolTip());
 		m_wallScaleEdit->setToolTip(wallLabel->toolTip());
