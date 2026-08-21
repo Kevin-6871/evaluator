@@ -102,7 +102,6 @@ class MicaWindow : public QMainWindow {
 
 		m_outputEdit = new QTextEdit(this);
 		m_outputEdit->setReadOnly(true);
-		m_outputEdit->setFont(QFont("Consolas", 10));
 
 		QHBoxLayout *pathLayout = new QHBoxLayout();
 		pathLayout->setSpacing(4);
@@ -153,12 +152,12 @@ class MicaWindow : public QMainWindow {
 			if (core < -1) core = -1;
 
 			m_runBtn->setEnabled(false);
-			m_outputEdit->clear();
+			// 不清屏: 保留上次测评结果供对比
 
 			appendOutput("========== 评测开始 ==========\n");
 			appendOutput("文件: " + m_currentSource + "\n");
 			appendOutput("编译参数: " + flags + "\n");
-			appendOutput("绑核: " + QString(core == -1 ? "不绑（自适应）" : QString::number(core)) + "\n");
+			appendOutput("绑核: " + QString(core == -1 ? "不绑(自适应)" : QString::number(core)) + "\n");
 
 			double refIPC = m_refIPCEdit->text().toDouble();
 			double refGHz = m_refGHEdit->text().toDouble();
@@ -235,27 +234,27 @@ class MicaWindow : public QMainWindow {
 		QLabel *limitLabel = new QLabel("OJ时限(ms):", this);
 		m_ojLimitEdit = new CustomLineEdit(this);
 		m_ojLimitEdit->setText("1000");
-		m_ojLimitEdit->setFixedWidth(60);
+		m_ojLimitEdit->setFixedWidth(72);
 		QLabel *langLabel = new QLabel("语言因子:", this);
 		m_langFactorEdit = new CustomLineEdit(this);
 		m_langFactorEdit->setText("1.00");
-		m_langFactorEdit->setFixedWidth(42);
+		m_langFactorEdit->setFixedWidth(56);
 		QLabel *wallLabel = new QLabel("硬限比例:", this);
 		m_wallScaleEdit = new CustomLineEdit(this);
 		m_wallScaleEdit->setText("1.5");
-		m_wallScaleEdit->setFixedWidth(36);
+		m_wallScaleEdit->setFixedWidth(52);
 		QLabel *memLabel = new QLabel("内存(MB):", this);
 		m_memLimitEdit = new CustomLineEdit(this);
 		m_memLimitEdit->setText("256");
-		m_memLimitEdit->setFixedWidth(48);
+		m_memLimitEdit->setFixedWidth(60);
 		QLabel *refLabel = new QLabel("参考机:", this);
 		m_refIPCEdit = new CustomLineEdit(this);
 		m_refIPCEdit->setText("3.0");
-		m_refIPCEdit->setFixedWidth(36);
+		m_refIPCEdit->setFixedWidth(48);
 		QLabel *ipcStar = new QLabel("IPC ×", this);
 		m_refGHEdit = new CustomLineEdit(this);
 		m_refGHEdit->setText("3.0");
-		m_refGHEdit->setFixedWidth(36);
+		m_refGHEdit->setFixedWidth(48);
 		QLabel *ghzUnit = new QLabel("GHz", this);
 		m_calibBtn = new QPushButton("重新校准", this);
 		connect(m_calibBtn, &QPushButton::clicked, this, [this]() {
@@ -365,6 +364,7 @@ class MicaWindow : public QMainWindow {
 		m_lastRefGHz = refGHz;
 
 		appendOutput("========== CPU 校准 ==========\n");
+		appendOutput(QString("绑核: %1\n").arg(core < 0 ? "不绑(自适应)" : QString::number(core)));
 		myd::OJTimerResult res = myd::OJTimer::getInstance().doCalibrate(core, refIPC, refGHz);
 		appendOutput(QString("参考机: %1 IPC × %2 GHz = %3 指令/秒\n")
 			.arg(refIPC, 0, 'f', 3).arg(refGHz, 0, 'f', 3).arg(res.refIPS, 0, 'f', 3));
