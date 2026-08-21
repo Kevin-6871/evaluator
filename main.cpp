@@ -82,7 +82,7 @@ class CardWidget : public QFrame {
 class MicaWindow : public QMainWindow {
   public:
 	MicaWindow(QWidget *parent = nullptr) : QMainWindow(parent) {
-		setWindowTitle("MB 评测器 (Qt + Mica)");
+		setWindowTitle("MB 评测器");
 		resize(780, 580);
 		setAttribute(Qt::WA_TranslucentBackground);
 		setAttribute(Qt::WA_OpaquePaintEvent);
@@ -121,7 +121,6 @@ class MicaWindow : public QMainWindow {
 			if (!file.isEmpty()) {
 				m_filePathEdit->setText(file);
 				m_runBtn->setEnabled(true);
-				m_outputEdit->clear();
 				m_currentSource = file;
 			}
 		});
@@ -154,7 +153,7 @@ class MicaWindow : public QMainWindow {
 			m_runBtn->setEnabled(false);
 			// 不清屏: 保留上次测评结果供对比
 
-			appendOutput("========== 评测开始 ==========\n");
+			appendOutput("==================== 评测开始 ====================\n");
 			appendOutput("文件: " + m_currentSource + "\n");
 			appendOutput("编译参数: " + flags + "\n");
 			appendOutput("绑核: " + QString(core == -1 ? "不绑(自适应)" : QString::number(core)) + "\n");
@@ -218,7 +217,7 @@ class MicaWindow : public QMainWindow {
 				appendOutput("判定: 内存超限 (MLE)\n");
 			appendOutput(QString("峰值专用内存: %1 MB\n").arg(peakMem / (1024.0 * 1024.0), 0, 'f', 2));
 
-			appendOutput("\n========== 评测结束 ==========\n");
+			appendOutput("\n==================== 评测结束 ====================\n\n");
 			m_runBtn->setEnabled(true);
 		});
 
@@ -234,7 +233,7 @@ class MicaWindow : public QMainWindow {
 		QLabel *limitLabel = new QLabel("OJ时限(ms):", this);
 		m_ojLimitEdit = new CustomLineEdit(this);
 		m_ojLimitEdit->setText("1000");
-		m_ojLimitEdit->setFixedWidth(72);
+		m_ojLimitEdit->setFixedWidth(64);
 		QLabel *langLabel = new QLabel("语言因子:", this);
 		m_langFactorEdit = new CustomLineEdit(this);
 		m_langFactorEdit->setText("1.00");
@@ -242,11 +241,11 @@ class MicaWindow : public QMainWindow {
 		QLabel *wallLabel = new QLabel("硬限比例:", this);
 		m_wallScaleEdit = new CustomLineEdit(this);
 		m_wallScaleEdit->setText("1.5");
-		m_wallScaleEdit->setFixedWidth(52);
+		m_wallScaleEdit->setFixedWidth(48);
 		QLabel *memLabel = new QLabel("内存(MB):", this);
 		m_memLimitEdit = new CustomLineEdit(this);
 		m_memLimitEdit->setText("256");
-		m_memLimitEdit->setFixedWidth(60);
+		m_memLimitEdit->setFixedWidth(56);
 		QLabel *refLabel = new QLabel("参考机:", this);
 		m_refIPCEdit = new CustomLineEdit(this);
 		m_refIPCEdit->setText("3.0");
@@ -363,7 +362,7 @@ class MicaWindow : public QMainWindow {
 		m_lastRefIPC = refIPC;
 		m_lastRefGHz = refGHz;
 
-		appendOutput("========== CPU 校准 ==========\n");
+		appendOutput("==================== CPU 校准 ====================\n");
 		appendOutput(QString("绑核: %1\n").arg(core < 0 ? "不绑(自适应)" : QString::number(core)));
 		myd::OJTimerResult res = myd::OJTimer::getInstance().doCalibrate(core, refIPC, refGHz);
 		appendOutput(QString("参考机: %1 IPC × %2 GHz = %3 指令/秒\n")
@@ -378,9 +377,10 @@ class MicaWindow : public QMainWindow {
 		}
 		appendOutput(QString("综合速度因子: %1\n")
 			.arg(res.speedFactor, 0, 'f', 4));
-		appendOutput(QString("校准耗时: %1 ms%2\n\n")
+		appendOutput(QString("校准耗时: %1 ms%2\n")
 			.arg(res.calibWallMs, 0, 'f', 0)
 			.arg(res.stable ? "" : "  (警告: 校准结果异常)"));
+		appendOutput("\n==================== 结束校准 ====================\n\n");
 	}
 
 	void appendOutput(const QString &text) {
@@ -443,6 +443,11 @@ class MicaWindow : public QMainWindow {
 
 int main(int argc, char *argv[]) {
 	QApplication app(argc, argv);
+
+	// 全局字体: Cascadia Code (回退 Consolas → 微软雅黑 UI)
+	QFont appFont = app.font();
+	appFont.setFamilies({"Cascadia Code", "Consolas", "Microsoft YaHei UI"});
+	app.setFont(appFont);
 
 	// ==================== 无头自测模式 ====================
 	if (argc > 1 && QString(argv[1]) == "--selftest") {
