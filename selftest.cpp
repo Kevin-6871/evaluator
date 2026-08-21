@@ -12,10 +12,12 @@ namespace selftest {
 namespace {
 
 QString verdictFromRunOut(const QString &runOut) {
-	if (runOut.contains("答案正确 (AC)")) return "AC";
-	if (runOut.contains("答案错误 (WA)")) return "WA";
+	// 时限/内存超限优先于答案正确性 (同真实 OJ 判定优先级)
 	if (runOut.contains("TLE-CPU")) return "TLE_CPU";
 	if (runOut.contains("TLE-WALL")) return "TLE_WALL";
+	if (runOut.contains("内存超限 (MLE)")) return "MLE";
+	if (runOut.contains("答案正确 (AC)")) return "AC";
+	if (runOut.contains("答案错误 (WA)")) return "WA";
 	return "RUN?";
 }
 
@@ -23,8 +25,9 @@ QString verdictFromRunOut(const QString &runOut) {
 //  - CompileError 期望编译失败 (CE)
 //  - MemTest 期望 AC 且峰值内存 > 100MB（验证 JobObject 峰值测量）
 //  - TimeTest 期望 AC 且 CPU 时间 > 10ms（验证计时链路）
-//  - TimeLimit 期望死循环被 JobObject CPU 软时限终止 (TLE-CPU)
+//  - TimeLimit 期望死循环被 CPU 软时限看门狗终止 (TLE-CPU)
 //  - SleepTest 期望休眠程序被墙钟硬时限终止 (TLE-WALL)
+//  - MemLimit 期望峰值内存超过限制被判定 MLE
 //  - 其余用例期望正确运行并给出 AC/WA
 bool isExpected(const QString &name, const QString &verdict, double cpu, size_t mem) {
 	if (name == "CompileError")
@@ -37,6 +40,8 @@ bool isExpected(const QString &name, const QString &verdict, double cpu, size_t 
 		return verdict == "TLE_CPU";
 	if (name == "SleepTest")
 		return verdict == "TLE_WALL";
+	if (name == "MemLimit")
+		return verdict == "MLE";
 	return verdict == "AC" || verdict == "WA";
 }
 
@@ -113,7 +118,7 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 
 		QString line;
 		QString verdict;
-		double cpu = 0; size_t mem = 0;
+		double cpu = 0; double wall = 0; size_t mem = 0;
 
 		if (!compileOk) {
 			line += QString("用例 %1 编译失败\n").arg(name);
@@ -121,13 +126,16 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 			verdict = "CE";
 		} else {
 			QString runOut;
+			size_t memLimitMB = (name == "MemLimit") ? 100 : 512;
 			int v = JudgeVerdict::RUN_ERR;
-			bool runOk = core.run(-1, 1000.0, 1.0, 1.5, cpu, mem, runOut, v);
+			bool runOk = core.run(-1, 1000.0, 1.0, 1.5, memLimitMB,
+				cpu, wall, mem, runOut, v);
 			verdict = verdictFromRunOut(runOut);
 			QString status = runOk ? verdict : "RUNFAIL";
-			QString fmt = QString("用例 %1  CPU=%2ms  内存=%3MB  判读=%4 -> %5\n")
+			QString fmt = QString("用例 %1  CPU=%2ms(E) 墙钟=%3ms  内存=%4MB  判读=%5 -> %6\n")
 							  .arg(name)
 							  .arg(cpu, 0, 'f', 3)
+							  .arg(wall, 0, 'f', 3)
 							  .arg(mem / (1024.0 * 1024.0), 0, 'f', 2)
 							  .arg(v)
 							  .arg(status);

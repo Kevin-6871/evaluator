@@ -7,14 +7,16 @@
 
 // ==================== 判题结论定义 ====================
 // 双时限模型 (DOMjudge 思路):
-//   软时限(CPU): JobObject 用户态CPU时间限制, 到点系统自动终止 → TLE_CPU
-//   硬时限(墙钟): wrapper 等待超时 → TerminateJobObject → TLE_WALL (防休眠/IO 卡死)
+//   软时限(CPU): 看门狗轮询 GetProcessTimes 用户态时间, 到点终结 → TLE_CPU
+//   硬时限(墙钟): wrapper 墙钟超时 → TerminateJobObject → TLE_WALL (防休眠/IO 卡死)
+//   内存限制: 运行后比对峰值专用内存 (PeakJobMemoryUsed) > 限制 → MLE
 namespace JudgeVerdict {
 enum Verdict {
 	OK       = 0,  // 正常完成
 	TLE_CPU  = 1,  // 用户态CPU时间超过软时限
 	TLE_WALL = 2,  // 墙钟超过硬时限
 	RUN_ERR  = 3,  // 运行层错误 (wrapper 启动失败等)
+	MLE      = 4,  // 峰值专用内存超过内存限制
 };
 }
 
@@ -35,9 +37,12 @@ class EvaluatorCore {
 	//   ojLimitMs       = OJ 标准时限 (参考机刻度, ms)
 	//   languageFactor  = 语言因子 (C++ = 1.0)
 	//   wallScale       = 硬时限 / 软时限 (默认 1.5)
+	//   memLimitMB      = 内存限制 (MB); >0 时峰值专用内存超过即 MLE
 	// 内部把 OJ 时限换算成本地 CPU 限额: localLimit = ojLimit × languageFactor / speedFactor
+	// 输出: cpuTimeMs=用户态CPU时间(ms), wallTimeMs=墙钟时长(ms), peakMem=峰值专用内存
 	bool run(int core, double ojLimitMs, double languageFactor, double wallScale,
-			 double &cpuTimeMs, size_t &peakMem, QString &output, int &verdict);
+			 size_t memLimitMB,
+			 double &cpuTimeMs, double &wallTimeMs, size_t &peakMem, QString &output, int &verdict);
 
   private:
 	QString m_exeDir;

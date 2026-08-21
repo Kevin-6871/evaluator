@@ -132,14 +132,18 @@ class MicaWindow : public QMainWindow {
 		QHBoxLayout *paramLayout = new QHBoxLayout();
 		paramLayout->setSpacing(4);
 		QLabel *flagsLabel = new QLabel("编译参数:", this);
+		flagsLabel->setToolTip("传给编译器的参数，例如 -std=c++17 -O2 -Wall。");
 		m_flagsEdit = new CustomLineEdit(this);
 		m_flagsEdit->setText("-std=c++17 -O2 -Wall");
+		m_flagsEdit->setToolTip(flagsLabel->toolTip());
 		QLabel *coreLabel = new QLabel("核心:", this);
+		coreLabel->setToolTip("把被评测程序绑定的 CPU 核心编号。\n-1 = 不绑定，由系统调度。");
 		m_coreEdit = new CustomLineEdit(this);
 		m_coreEdit->setText("-1");
 		m_coreEdit->setFixedWidth(60);
-
+		m_coreEdit->setToolTip(coreLabel->toolTip());
 		m_runBtn = new QPushButton("开始评测", this);
+		m_runBtn->setToolTip("编译并运行当前 C++ 源文件，按上方时限/内存/参考机参数评测。");
 		m_runBtn->setEnabled(false);
 		connect(m_runBtn, &QPushButton::clicked, this, [this]() {
 			if (m_currentSource.isEmpty()) return;
@@ -169,11 +173,14 @@ class MicaWindow : public QMainWindow {
 			double ojLimitMs = m_ojLimitEdit->text().toDouble();
 			double langFactor = m_langFactorEdit->text().toDouble();
 			double wallScale = m_wallScaleEdit->text().toDouble();
+			unsigned long long memLimitMB = m_memLimitEdit->text().toULongLong();
 			if (ojLimitMs <= 0.0) ojLimitMs = 1000.0;
 			if (langFactor <= 0.0) langFactor = 1.0;
 			if (wallScale <= 0.0) wallScale = 1.5;
-			appendOutput(QString("OJ时限: %1 ms  语言因子: %2  硬限比例: %3\n")
+			if (memLimitMB == 0) memLimitMB = 256;
+			appendOutput(QString("OJ时限: %1 ms   语言因子: %2   硬限比例: %3\n")
 				.arg(ojLimitMs, 0, 'f', 0).arg(langFactor, 0, 'f', 2).arg(wallScale, 0, 'f', 2));
+			appendOutput(QString("内存限制: %1 MB\n").arg(memLimitMB));
 
 			QString compileOut;
 			bool compileOk = m_core->compile(m_currentSource, flags, compileOut, "source");
@@ -186,10 +193,12 @@ class MicaWindow : public QMainWindow {
 			appendOutput("编译成功\n\n");
 
 			double cpuTime = 0;
+			double wallTime = 0;
 			size_t peakMem = 0;
 			QString runOut;
 			int verdict = JudgeVerdict::RUN_ERR;
-			bool runOk = m_core->run(core, ojLimitMs, langFactor, wallScale, cpuTime, peakMem, runOut, verdict);
+			bool runOk = m_core->run(core, ojLimitMs, langFactor, wallScale, memLimitMB,
+				cpuTime, wallTime, peakMem, runOut, verdict);
 			appendOutput(runOut);
 			if (!runOk) {
 				appendOutput("运行失败\n");
@@ -197,7 +206,8 @@ class MicaWindow : public QMainWindow {
 				return;
 			}
 
-			appendOutput(QString("用户态CPU时间: %1 ms\n").arg(cpuTime, 0, 'f', 3));
+			appendOutput(QString("用户态CPU时间: %1 ms   墙钟用时: %2 ms\n")
+				.arg(cpuTime, 0, 'f', 3).arg(wallTime, 0, 'f', 3));
 			double ojTime = myd::OJTimer::getInstance().toOJTime(cpuTime);
 			appendOutput(QString("标准OJ环境预估用时: %1 ms / 时限 %2 ms\n")
 				.arg(ojTime, 0, 'f', 3).arg(ojLimitMs, 0, 'f', 0));
@@ -205,6 +215,8 @@ class MicaWindow : public QMainWindow {
 				appendOutput("判定: 时间超限 (TLE-CPU)\n");
 			else if (verdict == JudgeVerdict::TLE_WALL)
 				appendOutput("判定: 时间超限 (TLE-WALL)\n");
+			else if (verdict == JudgeVerdict::MLE)
+				appendOutput("判定: 内存超限 (MLE)\n");
 			appendOutput(QString("峰值专用内存: %1 MB\n").arg(peakMem / (1024.0 * 1024.0), 0, 'f', 2));
 
 			appendOutput("\n========== 评测结束 ==========\n");
@@ -223,34 +235,65 @@ class MicaWindow : public QMainWindow {
 		QLabel *limitLabel = new QLabel("OJ时限(ms):", this);
 		m_ojLimitEdit = new CustomLineEdit(this);
 		m_ojLimitEdit->setText("1000");
-		m_ojLimitEdit->setFixedWidth(64);
+		m_ojLimitEdit->setFixedWidth(60);
 		QLabel *langLabel = new QLabel("语言因子:", this);
 		m_langFactorEdit = new CustomLineEdit(this);
 		m_langFactorEdit->setText("1.00");
-		m_langFactorEdit->setFixedWidth(48);
+		m_langFactorEdit->setFixedWidth(42);
 		QLabel *wallLabel = new QLabel("硬限比例:", this);
 		m_wallScaleEdit = new CustomLineEdit(this);
 		m_wallScaleEdit->setText("1.5");
-		m_wallScaleEdit->setFixedWidth(40);
+		m_wallScaleEdit->setFixedWidth(36);
+		QLabel *memLabel = new QLabel("内存(MB):", this);
+		m_memLimitEdit = new CustomLineEdit(this);
+		m_memLimitEdit->setText("256");
+		m_memLimitEdit->setFixedWidth(48);
 		QLabel *refLabel = new QLabel("参考机:", this);
 		m_refIPCEdit = new CustomLineEdit(this);
 		m_refIPCEdit->setText("3.0");
-		m_refIPCEdit->setFixedWidth(40);
+		m_refIPCEdit->setFixedWidth(36);
 		QLabel *ipcStar = new QLabel("IPC ×", this);
 		m_refGHEdit = new CustomLineEdit(this);
 		m_refGHEdit->setText("3.0");
-		m_refGHEdit->setFixedWidth(40);
+		m_refGHEdit->setFixedWidth(36);
 		QLabel *ghzUnit = new QLabel("GHz", this);
 		m_calibBtn = new QPushButton("重新校准", this);
 		connect(m_calibBtn, &QPushButton::clicked, this, [this]() {
 			refreshCalibration();
 		});
+
+		// 参数说明 (悬停提示)
+		limitLabel->setToolTip("题目标准时限(ms)，以参考机刻度计。\n"
+			"本地等效时限 = 时限 × 语言因子 ÷ 速度因子，\n"
+			"超过即判 TLE-CPU。");
+		langLabel->setToolTip("语言速度因子：C/C++=1.00。\n"
+			"解释型/慢语言请调大(如 Java=2, Python=5)以放宽时限。");
+		wallLabel->setToolTip("墙钟硬时限 = 软时限(CPU) × 本比例(默认1.5)。\n"
+			"休眠或 IO 卡死的程序虽然不消耗 CPU，也会被墙钟硬时限终止，判 TLE-WALL。");
+		memLabel->setToolTip("内存上限(MB)。评测结束时若峰值专用内存超过该值，判 MLE。\n"
+			"(测量口径，不主动掐断分配)");
+		refLabel->setToolTip("参考 OJ 机器单核算力：IPS = IPC × GHz × 10^9 条指令/秒。\n"
+			"默认 3.0 IPC × 3.0 GHz = 9.0e9 指令/秒。\n"
+			"本机各域指令吞吐与参考机之比即为该域因子。");
+		ipcStar->setToolTip("参考机平均每周期完成的指令数(IPC)。");
+		ghzUnit->setToolTip("参考机主频(GHz)。");
+		m_calibBtn->setToolTip("用上方参考机参数重新测量本机 4 个域(整型/浮点/内存/分支)\n"
+			"的指令吞吐并重算综合速度因子。");
+		m_ojLimitEdit->setToolTip(limitLabel->toolTip());
+		m_langFactorEdit->setToolTip(langLabel->toolTip());
+		m_wallScaleEdit->setToolTip(wallLabel->toolTip());
+		m_memLimitEdit->setToolTip(memLabel->toolTip());
+		m_refIPCEdit->setToolTip(refLabel->toolTip());
+		m_refGHEdit->setToolTip(refLabel->toolTip());
+
 		limitLayout->addWidget(limitLabel);
 		limitLayout->addWidget(m_ojLimitEdit);
 		limitLayout->addWidget(langLabel);
 		limitLayout->addWidget(m_langFactorEdit);
 		limitLayout->addWidget(wallLabel);
 		limitLayout->addWidget(m_wallScaleEdit);
+		limitLayout->addWidget(memLabel);
+		limitLayout->addWidget(m_memLimitEdit);
 		limitLayout->addWidget(refLabel);
 		limitLayout->addWidget(m_refIPCEdit);
 		limitLayout->addWidget(ipcStar);
@@ -301,6 +344,7 @@ class MicaWindow : public QMainWindow {
 	CustomLineEdit *m_ojLimitEdit;
 	CustomLineEdit *m_langFactorEdit;
 	CustomLineEdit *m_wallScaleEdit;
+	CustomLineEdit *m_memLimitEdit;
 	CustomLineEdit *m_refIPCEdit;
 	CustomLineEdit *m_refGHEdit;
 	QPushButton *m_calibBtn;
@@ -352,7 +396,7 @@ class MicaWindow : public QMainWindow {
 
 		QList<QWidget*> widgets = {
 			m_filePathEdit, m_flagsEdit, m_coreEdit,
-			m_ojLimitEdit, m_langFactorEdit, m_wallScaleEdit,
+			m_ojLimitEdit, m_langFactorEdit, m_wallScaleEdit, m_memLimitEdit,
 			m_refIPCEdit, m_refGHEdit
 		};
 		for(QWidget* w : widgets) {

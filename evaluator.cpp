@@ -79,8 +79,11 @@ bool EvaluatorCore::compile(const QString &srcPath, const QString &flags,
 }
 
 bool EvaluatorCore::run(int core, double ojLimitMs, double languageFactor, double wallScale,
-						double &cpuTimeMs, size_t &peakMem, QString &output, int &verdict) {
+						size_t memLimitMB,
+						double &cpuTimeMs, double &wallTimeMs, size_t &peakMem,
+						QString &output, int &verdict) {
 	verdict = JudgeVerdict::RUN_ERR;
+	wallTimeMs = 0.0;
 
 	// OJ 时限 → 本地 CPU 限额: 快机(因子>1)本地限额小, 慢机限额大
 	double speedFactor = 1.0;
@@ -95,6 +98,8 @@ bool EvaluatorCore::run(int core, double ojLimitMs, double languageFactor, doubl
 	const double wallLimitMs = (localCpuLimitMs <= 0.0)
 		? 0.0
 		: (localCpuLimitMs * (wallScale > 0.0 ? wallScale : 1.0));
+	const size_t memLimitBytes = (memLimitMB > 0)
+		? (size_t)memLimitMB * 1024ull * 1024ull : 0;
 
 	QString wrapperCode = QString(R"(
 #include <windows.h>
@@ -131,7 +136,9 @@ int main() {
 	// ---- 双时限执行 ----
 	// 软时限(TLE_CPU): 看门狗轮询 GetProcessTimes 用户态时间(与计分同源时钟), 超限终结
 	// 硬时限(TLE_WALL): 墙钟爬满 wallLimitMs(软限×比例)终结, 防休眠/IO 卡死
+	DWORD runStart = GetTickCount();
 	int verdict = 0;
+	double detectedUserMs = 0.0;
 	if (cpuLimitMs <= 0.0) {
 		DWORD hardMs = (wallLimitMs > 0.0) ? (DWORD)wallLimitMs : INFINITE;
 		if (WaitForSingleObject(pi.hProcess, hardMs) == WAIT_TIMEOUT) {
@@ -140,10 +147,9 @@ int main() {
 			verdict = 2;   // TLE_WALL
 		}
 	} else {
-		DWORD wallStart = GetTickCount();
 		bool done = false;
 		while (!done) {
-			DWORD elapsed = GetTickCount() - wallStart;
+			DWORD elapsed = GetTickCount() - runStart;
 			if (wallLimitMs > 0.0 && (double)elapsed >= wallLimitMs) {
 				if (job) TerminateJobObject(job, 1);
 				WaitForSingleObject(pi.hProcess, INFINITE);
@@ -163,7 +169,8 @@ int main() {
 			ULARGE_INTEGER ul;
 			ul.LowPart = tu.dwLowDateTime;
 			ul.HighPart = tu.dwHighDateTime;
-			if ((double)ul.QuadPart / 10000.0 >= cpuLimitMs) {
+			detectedUserMs = ul.QuadPart / 10000.0;
+			if (detectedUserMs >= cpuLimitMs) {
 				if (job) TerminateJobObject(job, 1);
 				WaitForSingleObject(pi.hProcess, INFINITE);
 				verdict = 1;   // TLE_CPU
@@ -178,6 +185,8 @@ int main() {
 	tr.LowPart = u.dwLowDateTime;
 	tr.HighPart = u.dwHighDateTime;
 	double t = tr.QuadPart / 10000.0;
+	if (t <= 0.0 && detectedUserMs > 0.0) t = detectedUserMs;   // 兜底: 终结时刻的回读可能未刷新
+	double wallMs = (double)(DWORD)(GetTickCount() - runStart);
 	CloseHandle(pi.hProcess);
 
 	unsigned long long m = 0;
@@ -191,7 +200,7 @@ int main() {
 
 	FILE* f = fopen("time_result.txt", "w");
 	if (f) {
-		fprintf(f, "%.3f %.3f %llu %d", t, t, m, verdict);
+		fprintf(f, "%.3f %.3f %llu %d", t, wallMs, m, verdict);
 		fclose(f);
 	}
 	return 0;
@@ -253,18 +262,25 @@ int main() {
 		return false;
 	}
 	QTextStream in(&resultFile);
-	double t = 0; double wallT = 0;
+	double t = 0; double wall = 0;
 	unsigned long long m = 0; int v = 0;
-	in >> t >> wallT >> m >> v;
+	in >> t >> wall >> m >> v;
 	cpuTimeMs = t;
+	wallTimeMs = wall;
 	peakMem = (size_t)m;
 	verdict = (v >= JudgeVerdict::OK && v <= JudgeVerdict::RUN_ERR) ? v : JudgeVerdict::RUN_ERR;
 	resultFile.close();
+
+	// 内存限制 (测量口径): 峰值专用内存超过限制即 MLE
+	if (memLimitBytes > 0 && peakMem > memLimitBytes && verdict == JudgeVerdict::OK)
+		verdict = JudgeVerdict::MLE;
 
 	if (verdict == JudgeVerdict::TLE_CPU)
 		output += "时间超限 (TLE-CPU)\n";
 	else if (verdict == JudgeVerdict::TLE_WALL)
 		output += "时间超限 (TLE-WALL)\n";
+	else if (verdict == JudgeVerdict::MLE)
+		output += "内存超限 (MLE)\n";
 
 	QFile outFile(m_testDir + "source.out");
 	QFile ansFile(m_testDir + "source.ans");
