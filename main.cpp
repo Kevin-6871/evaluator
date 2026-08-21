@@ -156,9 +156,24 @@ class MicaWindow : public QMainWindow {
 			appendOutput("编译参数: " + flags + "\n");
 			appendOutput("绑核: " + QString(core == -1 ? "不绑（自适应）" : QString::number(core)) + "\n");
 
-			myd::OJTimer::getInstance().doCalibrate(core);
-			double speedFactor = myd::OJTimer::getInstance().getSpeedFactor();
-			appendOutput(QString("速度因子: %1\n").arg(speedFactor, 0, 'f', 3));
+			double refIPC = m_refIPCEdit->text().toDouble();
+			double refGHz = m_refGHEdit->text().toDouble();
+			if (refIPC != m_lastRefIPC || refGHz != m_lastRefGHz) {
+				refreshCalibration();
+			} else {
+				appendOutput(QString("速度因子: %1  (参考机 %2 指令/秒)\n\n")
+					.arg(myd::OJTimer::getInstance().getSpeedFactor(), 0, 'f', 4)
+					.arg(myd::OJTimer::getInstance().getRefIPS(), 0, 'f', 2));
+			}
+
+			double ojLimitMs = m_ojLimitEdit->text().toDouble();
+			double langFactor = m_langFactorEdit->text().toDouble();
+			double wallScale = m_wallScaleEdit->text().toDouble();
+			if (ojLimitMs <= 0.0) ojLimitMs = 1000.0;
+			if (langFactor <= 0.0) langFactor = 1.0;
+			if (wallScale <= 0.0) wallScale = 1.5;
+			appendOutput(QString("OJ时限: %1 ms  语言因子: %2  硬限比例: %3\n")
+				.arg(ojLimitMs, 0, 'f', 0).arg(langFactor, 0, 'f', 2).arg(wallScale, 0, 'f', 2));
 
 			QString compileOut;
 			bool compileOk = m_core->compile(m_currentSource, flags, compileOut, "source");
@@ -173,7 +188,8 @@ class MicaWindow : public QMainWindow {
 			double cpuTime = 0;
 			size_t peakMem = 0;
 			QString runOut;
-			bool runOk = m_core->run(core, cpuTime, peakMem, runOut);
+			int verdict = JudgeVerdict::RUN_ERR;
+			bool runOk = m_core->run(core, ojLimitMs, langFactor, wallScale, cpuTime, peakMem, runOut, verdict);
 			appendOutput(runOut);
 			if (!runOk) {
 				appendOutput("运行失败\n");
@@ -183,7 +199,12 @@ class MicaWindow : public QMainWindow {
 
 			appendOutput(QString("用户态CPU时间: %1 ms\n").arg(cpuTime, 0, 'f', 3));
 			double ojTime = myd::OJTimer::getInstance().toOJTime(cpuTime);
-			appendOutput(QString("标准OJ环境预估用时: %1 ms\n").arg(ojTime, 0, 'f', 3));
+			appendOutput(QString("标准OJ环境预估用时: %1 ms / 时限 %2 ms\n")
+				.arg(ojTime, 0, 'f', 3).arg(ojLimitMs, 0, 'f', 0));
+			if (verdict == JudgeVerdict::TLE_CPU)
+				appendOutput("判定: 时间超限 (TLE-CPU)\n");
+			else if (verdict == JudgeVerdict::TLE_WALL)
+				appendOutput("判定: 时间超限 (TLE-WALL)\n");
 			appendOutput(QString("峰值专用内存: %1 MB\n").arg(peakMem / (1024.0 * 1024.0), 0, 'f', 2));
 
 			appendOutput("\n========== 评测结束 ==========\n");
@@ -197,14 +218,58 @@ class MicaWindow : public QMainWindow {
 		paramLayout->addStretch();
 		paramLayout->addWidget(m_runBtn);
 
+		QHBoxLayout *limitLayout = new QHBoxLayout();
+		limitLayout->setSpacing(4);
+		QLabel *limitLabel = new QLabel("OJ时限(ms):", this);
+		m_ojLimitEdit = new CustomLineEdit(this);
+		m_ojLimitEdit->setText("1000");
+		m_ojLimitEdit->setFixedWidth(64);
+		QLabel *langLabel = new QLabel("语言因子:", this);
+		m_langFactorEdit = new CustomLineEdit(this);
+		m_langFactorEdit->setText("1.00");
+		m_langFactorEdit->setFixedWidth(48);
+		QLabel *wallLabel = new QLabel("硬限比例:", this);
+		m_wallScaleEdit = new CustomLineEdit(this);
+		m_wallScaleEdit->setText("1.5");
+		m_wallScaleEdit->setFixedWidth(40);
+		QLabel *refLabel = new QLabel("参考机:", this);
+		m_refIPCEdit = new CustomLineEdit(this);
+		m_refIPCEdit->setText("3.0");
+		m_refIPCEdit->setFixedWidth(40);
+		QLabel *ipcStar = new QLabel("IPC ×", this);
+		m_refGHEdit = new CustomLineEdit(this);
+		m_refGHEdit->setText("3.0");
+		m_refGHEdit->setFixedWidth(40);
+		QLabel *ghzUnit = new QLabel("GHz", this);
+		m_calibBtn = new QPushButton("重新校准", this);
+		connect(m_calibBtn, &QPushButton::clicked, this, [this]() {
+			refreshCalibration();
+		});
+		limitLayout->addWidget(limitLabel);
+		limitLayout->addWidget(m_ojLimitEdit);
+		limitLayout->addWidget(langLabel);
+		limitLayout->addWidget(m_langFactorEdit);
+		limitLayout->addWidget(wallLabel);
+		limitLayout->addWidget(m_wallScaleEdit);
+		limitLayout->addWidget(refLabel);
+		limitLayout->addWidget(m_refIPCEdit);
+		limitLayout->addWidget(ipcStar);
+		limitLayout->addWidget(m_refGHEdit);
+		limitLayout->addWidget(ghzUnit);
+		limitLayout->addStretch();
+		limitLayout->addWidget(m_calibBtn);
+
 		cardLayout->addWidget(m_outputEdit, 1);
 		cardLayout->addLayout(pathLayout);
+		cardLayout->addLayout(limitLayout);
 		cardLayout->addLayout(paramLayout);
 		mainLayout->addWidget(cardWidget);
 
 		applyPaletteTheme(isDarkMode());
 		QString exeDir = QCoreApplication::applicationDirPath();
 		m_core = new EvaluatorCore(exeDir);
+
+		refreshCalibration();
 	}
 
 	~MicaWindow() { delete m_core; }
@@ -233,9 +298,46 @@ class MicaWindow : public QMainWindow {
 	CustomLineEdit *m_flagsEdit;
 	CustomLineEdit *m_coreEdit;
 	QPushButton *m_runBtn;
+	CustomLineEdit *m_ojLimitEdit;
+	CustomLineEdit *m_langFactorEdit;
+	CustomLineEdit *m_wallScaleEdit;
+	CustomLineEdit *m_refIPCEdit;
+	CustomLineEdit *m_refGHEdit;
+	QPushButton *m_calibBtn;
 	QTextEdit *m_outputEdit;
 	QString m_currentSource;
+	double m_lastRefIPC = myd::kDefaultRefIPC;
+	double m_lastRefGHz = myd::kDefaultRefGHz;
 	EvaluatorCore *m_core;
+
+	void refreshCalibration() {
+		double refIPC = m_refIPCEdit->text().toDouble();
+		double refGHz = m_refGHEdit->text().toDouble();
+		if (refIPC <= 0.0) refIPC = myd::kDefaultRefIPC;
+		if (refGHz <= 0.0) refGHz = myd::kDefaultRefGHz;
+		int core = m_coreEdit->text().toInt();
+		if (core < -1) core = -1;
+		m_lastRefIPC = refIPC;
+		m_lastRefGHz = refGHz;
+
+		appendOutput("========== CPU 校准 ==========\n");
+		myd::OJTimerResult res = myd::OJTimer::getInstance().doCalibrate(core, refIPC, refGHz);
+		appendOutput(QString("参考机: %1 IPC × %2 GHz = %3 指令/秒\n")
+			.arg(refIPC, 0, 'f', 3).arg(refGHz, 0, 'f', 3).arg(res.refIPS, 0, 'f', 3));
+		static const char* const dom[] = { "整型", "浮点", "内存", "分支" };
+		for (int d = 0; d < 4; ++d) {
+			appendOutput(QString("  %1: IPS=%2e9  本地CPU=%3ms  因子=%4\n")
+				.arg(dom[d])
+				.arg(res.domainIPS[d] / 1e9, 0, 'f', 4)
+				.arg(res.domainCPUMs[d], 0, 'f', 1)
+				.arg(res.domainFactor[d], 0, 'f', 4));
+		}
+		appendOutput(QString("综合速度因子: %1\n")
+			.arg(res.speedFactor, 0, 'f', 4));
+		appendOutput(QString("校准耗时: %1 ms%2\n\n")
+			.arg(res.calibWallMs, 0, 'f', 0)
+			.arg(res.stable ? "" : "  (警告: 校准结果异常)"));
+	}
 
 	void appendOutput(const QString &text) {
 		m_outputEdit->moveCursor(QTextCursor::End);
@@ -248,7 +350,11 @@ class MicaWindow : public QMainWindow {
 		QColor placeholderColor = darkMode ? QColor(160,160,160) : QColor(100,100,100);
 		QColor baseInputColor = darkMode ? QColor(32, 32, 32) : Qt::white;
 
-		QList<QWidget*> widgets = {m_filePathEdit, m_flagsEdit, m_coreEdit};
+		QList<QWidget*> widgets = {
+			m_filePathEdit, m_flagsEdit, m_coreEdit,
+			m_ojLimitEdit, m_langFactorEdit, m_wallScaleEdit,
+			m_refIPCEdit, m_refGHEdit
+		};
 		for(QWidget* w : widgets) {
 			QPalette pal = w->palette();
 			pal.setColor(QPalette::Text, realTextColor);

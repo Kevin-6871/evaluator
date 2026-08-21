@@ -1,10 +1,17 @@
 #include "md.hpp"
 #include <windows.h>
 #include <psapi.h>
+#include <immintrin.h>
 #include <cstdlib>
 #include <cmath>
 
 namespace myd {
+
+#if defined(_MSC_VER)
+#define MYD_NOINLINE __declspec(noinline)
+#else
+#define MYD_NOINLINE __attribute__((noinline))
+#endif
 
 // ==================== CPUTimer ====================
 void CPUTimer::calibrate() {
@@ -55,40 +62,197 @@ CoreBinder::CoreBinder(int coreID) : oldMask(0), bound(false) {
 }
 CoreBinder::~CoreBinder() { if (bound && oldMask) SetThreadAffinityMask(GetCurrentThread(), oldMask); }
 
-// ==================== OJTimer ====================
+// ==================== OJTimer: 4 域固定内核 ====================
+// 每个内核都是"固定源码、单线程、无异常、无内联汇编"的 tight loop，
+// 保证任何机器、任何次运行执行完全相同的机器指令序列。
+// 每轮指令数常量 kInstPerIter[] 由发布二进制的循环体反汇编静态推导。
+
+MYD_NOINLINE uint64_t OJTimer::runIntALU(uint64_t iters) {
+    uint64_t v = 123456789ULL;
+    volatile uint64_t sink = 0;
+    for (uint64_t i = 0; i < iters; ++i) {
+        v = v * 6364136223846793005ULL + 1442695040888963407ULL;
+        v ^= (v >> 33);
+        sink = v;
+    }
+    (void)sink;
+    return iters;
+}
+
+MYD_NOINLINE uint64_t OJTimer::runFloatMath(uint64_t iters) {
+    float x = 1.000001f, y = 0.999999f;
+    volatile float sink = 0.0f;
+    for (uint64_t i = 0; i < iters; ++i) {
+        x = x * 1.000001f + y;
+        y = y * 0.999999f;
+        __m128 a = _mm_set_ss(x);
+        a = _mm_sqrt_ss(a);
+        x = _mm_cvtss_f32(a);
+        sink = x;
+    }
+    (void)sink;
+    return iters;
+}
+
+MYD_NOINLINE uint64_t OJTimer::runMemOps(uint64_t iters) {
+    static volatile unsigned char s_buf[1u << 20]; // 1MB 缓存不友好
+    const size_t mask = (1u << 20) - 1;
+    size_t idx = 0;
+    volatile unsigned char sink = 0;
+    for (uint64_t i = 0; i < iters; ++i) {
+        idx = (idx + 64) & mask;
+        unsigned char v = (unsigned char)(s_buf[idx] + (idx >> 8));
+        s_buf[idx] = v;
+        sink = v;
+    }
+    (void)sink;
+    return iters;
+}
+
+MYD_NOINLINE uint64_t OJTimer::runBranch(uint64_t iters) {
+    static volatile unsigned char s_data[1u << 20]; // 预填伪随机使分支不可预测
+    static volatile unsigned char s_taken = 0;
+    static bool s_seeded = false;
+    if (!s_seeded) {
+        uint32_t s = 0x9E3779B9u;
+        for (size_t i = 0; i < (1u << 20); ++i) {
+            s = s * 1664525u + 1013904223u;
+            s_data[i] = (unsigned char)(s >> 24);
+        }
+        s_seeded = true;
+    }
+    const size_t mask = (1u << 20) - 1;
+    size_t idx = 0;
+    uint64_t acc = 0;
+    volatile uint64_t sink = 0;
+    for (uint64_t i = 0; i < iters; ++i) {
+        idx = (idx + 8) & mask;
+        unsigned char c = s_data[idx];
+        // 必须保留真实条件跳转: else 分支带有副作用(volatile 写), 编译器无法用 cmov 替代
+        if (c < 128)
+            acc += c;
+        else {
+            acc ^= c;
+            s_taken ^= 1;
+        }
+        sink = acc;
+    }
+    (void)sink;
+    (void)s_taken;
+    return iters;
+}
+
+// ==================== OJTimer: 计时与校准 ====================
 OJTimer& OJTimer::getInstance() {
     static OJTimer instance;
     return instance;
 }
 
-void OJTimer::doCalibrate(int bindCore) {
-    CoreBinder binder(bindCore);
-    long long counter = 0;
-
-    LARGE_INTEGER freq, t1, t2;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&t1);
-
-    for (long long i = 0; i < STANDARD_OPS; ++i) {
-        counter += 1;
-        _mm_mfence();   // 阻止编译器优化掉循环
-    }
-
-    QueryPerformanceCounter(&t2);
-    double avg = (t2.QuadPart - t1.QuadPart) * 1000.0 / freq.QuadPart;
-
-    // 写入文件以防优化
-    FILE* f = fopen("calibration_dump.txt", "w");
-    if (f) { fprintf(f, "%lld", counter); fclose(f); }
-
-    if (avg > 0.0 && avg < 100000.0) {
-        speedFactor = 1000.0 / avg;
-    } else {
-        speedFactor = 1.0;
-    }
+// 单线程用户态 CPU 时间 (ms)。与判题链路 GetProcessTimes 的用户态口径一致，
+// 且校准与计分都使用"该线程真正在核心上执行"的时间，杜绝 QPC 墙钟单位错配。
+static double threadUserCPUMs() {
+    FILETIME c, e, k, u;
+    GetThreadTimes(GetCurrentThread(), &c, &e, &k, &u);
+    ULARGE_INTEGER ul;
+    ul.LowPart = u.dwLowDateTime;
+    ul.HighPart = u.dwHighDateTime;
+    return ul.QuadPart / 10000.0;
 }
 
-double OJTimer::getSpeedFactor() const { return speedFactor; }
+double OJTimer::runDomainCPUMs(int d, uint64_t iters) {
+    const double t0 = threadUserCPUMs();
+    switch (static_cast<OJDomain>(d)) {
+        case OJDomain::IntALU:    runIntALU(iters);    break;
+        case OJDomain::FloatMath: runFloatMath(iters); break;
+        case OJDomain::MemOps:    runMemOps(iters);    break;
+        case OJDomain::Branch:    runBranch(iters);    break;
+    }
+    const double t1 = threadUserCPUMs();
+    return t1 - t0;
+}
+
+OJTimerResult OJTimer::doCalibrate(int bindCore, double refIPC, double refGHz) {
+    OJTimerResult res;
+    // 先给 res.stable 赋值并由后续失败分支清零
+    res.stable = true;
+
+    if (refIPC <= 0.0) refIPC = kDefaultRefIPC;
+    if (refGHz <= 0.0) refGHz = kDefaultRefGHz;
+    res.refIPS = refIPC * refGHz * 1e9;   // 必须先于域循环, 因子计算依赖它
+    refIPS = res.refIPS;
+
+    const double instPerIter[4] = {
+        (double)kInstPerIter[static_cast<int>(OJDomain::IntALU)],
+        (double)kInstPerIter[static_cast<int>(OJDomain::FloatMath)],
+        (double)kInstPerIter[static_cast<int>(OJDomain::MemOps)],
+        (double)kInstPerIter[static_cast<int>(OJDomain::Branch)]
+    };
+
+    LARGE_INTEGER wf, wt1, wt2;
+    QueryPerformanceFrequency(&wf);
+    QueryPerformanceCounter(&wt1);
+
+    {
+        CoreBinder binder(bindCore);
+
+        for (int d = 0; d < 4; ++d) {
+            // 预热 (冷缓存/分支预测器/首次页缺失不纳入统计)
+            runDomainCPUMs(d, 8192);
+
+            // 逐步放大轮数, 保证计时超过系统时钟节拍 (GetThreadTimes 以节拍更新)
+            uint64_t iters = 1u << 20;
+            double ms = runDomainCPUMs(d, iters);
+            int guard = 0;
+            while (ms < 30.0 && guard++ < 12 && iters < (1ull << 40)) {
+                iters *= 4;
+                ms = runDomainCPUMs(d, iters);
+            }
+            if (!(ms > 0.0)) {
+                res.stable = false;
+                continue;
+            }
+            double itersPerMs = (double)iters / ms;
+
+            double bestIPS = 0.0;
+            double bestMs = 0.0;
+            for (double target : kCalibTargetMs) {
+                uint64_t it = (uint64_t)(itersPerMs * target) + 8;
+                if (it < 64) it = 64;
+                double m = runDomainCPUMs(d, it);
+                if (m < 20.0) {   // 单次测量分辨率兜底 (至少跨一个时钟节拍)
+                    it *= 8;
+                    m = runDomainCPUMs(d, it);
+                }
+                if (!(m > 0.0) || instPerIter[d] <= 0.0) continue;
+                double ips = ((double)it * instPerIter[d]) * 1000.0 / m;
+                if (ips > bestIPS) { bestIPS = ips; bestMs = m; }
+            }
+
+            res.domainIPS[d]   = bestIPS;
+            res.domainCPUMs[d] = bestMs;
+            res.domainFactor[d] = (res.refIPS > 0.0) ? bestIPS / res.refIPS : 1.0;
+            if (!(res.domainFactor[d] > 0.0)) res.stable = false;
+        }
+    }
+
+double g = 1.0;
+	int valid = 0;
+	for (int d = 0; d < 4; ++d) {
+		if (res.domainFactor[d] > 0.0 && std::isfinite(res.domainFactor[d])) {
+			g *= res.domainFactor[d];
+			++valid;
+		}
+	}
+	double gmean = (valid > 0) ? pow(g, 1.0 / (double)valid) : 1.0;
+	if (!(gmean > 0.0) || !std::isfinite(gmean)) gmean = 1.0;
+	res.speedFactor = gmean;
+	speedFactor = gmean;
+	if (valid < 4) res.stable = false;   // 任一域失败即视为校准不稳定
+
+    QueryPerformanceCounter(&wt2);
+    res.calibWallMs = (wt2.QuadPart - wt1.QuadPart) * 1000.0 / (double)wf.QuadPart;
+    return res;
+}
 
 double OJTimer::toOJTime(double localTimeMs) const {
     return (localTimeMs < 0.0 || speedFactor <= 0.0) ? localTimeMs : localTimeMs * speedFactor;

@@ -14,6 +14,8 @@ namespace {
 QString verdictFromRunOut(const QString &runOut) {
 	if (runOut.contains("答案正确 (AC)")) return "AC";
 	if (runOut.contains("答案错误 (WA)")) return "WA";
+	if (runOut.contains("TLE-CPU")) return "TLE_CPU";
+	if (runOut.contains("TLE-WALL")) return "TLE_WALL";
 	return "RUN?";
 }
 
@@ -21,6 +23,8 @@ QString verdictFromRunOut(const QString &runOut) {
 //  - CompileError 期望编译失败 (CE)
 //  - MemTest 期望 AC 且峰值内存 > 100MB（验证 JobObject 峰值测量）
 //  - TimeTest 期望 AC 且 CPU 时间 > 10ms（验证计时链路）
+//  - TimeLimit 期望死循环被 JobObject CPU 软时限终止 (TLE-CPU)
+//  - SleepTest 期望休眠程序被墙钟硬时限终止 (TLE-WALL)
 //  - 其余用例期望正确运行并给出 AC/WA
 bool isExpected(const QString &name, const QString &verdict, double cpu, size_t mem) {
 	if (name == "CompileError")
@@ -29,6 +33,10 @@ bool isExpected(const QString &name, const QString &verdict, double cpu, size_t 
 		return verdict == "AC" && mem > 100LL * 1024 * 1024;
 	if (name == "TimeTest")
 		return verdict == "AC" && cpu > 10.0;
+	if (name == "TimeLimit")
+		return verdict == "TLE_CPU";
+	if (name == "SleepTest")
+		return verdict == "TLE_WALL";
 	return verdict == "AC" || verdict == "WA";
 }
 
@@ -62,7 +70,8 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 		return 0;
 	}
 
-	myd::OJTimer::getInstance().doCalibrate();
+	myd::OJTimerResult calib = myd::OJTimer::getInstance()
+		.doCalibrate(-1, myd::kDefaultRefIPC, myd::kDefaultRefGHz);
 
 	QStringList folders = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 	folders.sort();
@@ -71,8 +80,18 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 	header += "========== 评测器可用性自测 ==========\n";
 	header += "工具链: " + compiler + "\n";
 	header += "版本: " + ver.split("\n").first() + "\n";
-	header += QString("速度因子: %1\n\n").arg(
-		myd::OJTimer::getInstance().getSpeedFactor(), 0, 'f', 3);
+	header += QString("参考机: %1 IPC × %2 GHz = %3 指令/秒\n")
+		.arg(myd::kDefaultRefIPC, 0, 'f', 2).arg(myd::kDefaultRefGHz, 0, 'f', 2)
+		.arg(calib.refIPS, 0, 'f', 2);
+	static const char* const domName[4] = { "整型", "浮点", "内存", "分支" };
+	for (int d = 0; d < 4; ++d) {
+		header += QString("  %1: IPS=%2e9  因子=%3\n")
+			.arg(domName[d])
+			.arg(calib.domainIPS[d] / 1e9, 0, 'f', 4)
+			.arg(calib.domainFactor[d], 0, 'f', 4);
+	}
+	header += QString("综合速度因子: %1\n").arg(calib.speedFactor, 0, 'f', 4);
+	header += QString("校准耗时: %1 ms\n\n").arg(calib.calibWallMs, 0, 'f', 0);
 	report += header;
 
 	int pass = 0;
@@ -102,13 +121,15 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 			verdict = "CE";
 		} else {
 			QString runOut;
-			bool runOk = core.run(-1, cpu, mem, runOut);
+			int v = JudgeVerdict::RUN_ERR;
+			bool runOk = core.run(-1, 1000.0, 1.0, 1.5, cpu, mem, runOut, v);
 			verdict = verdictFromRunOut(runOut);
 			QString status = runOk ? verdict : "RUNFAIL";
-			QString fmt = QString("用例 %1  CPU=%2ms  内存=%3MB  -> %4\n")
+			QString fmt = QString("用例 %1  CPU=%2ms  内存=%3MB  判读=%4 -> %5\n")
 							  .arg(name)
 							  .arg(cpu, 0, 'f', 3)
 							  .arg(mem / (1024.0 * 1024.0), 0, 'f', 2)
+							  .arg(v)
 							  .arg(status);
 			line += fmt;
 			if (!runOk || verdict == "RUN?") {
