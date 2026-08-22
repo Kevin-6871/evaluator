@@ -76,6 +76,7 @@ namespace myd {
 		double domainIPS[4]    = {0.0,0.0,0.0,0.0}; // 各域实测每秒指令
 		double domainCPUMs[4]  = {0.0,0.0,0.0,0.0}; // 各域采用的(最优)本地用户态CPU时间
 		double calibWallMs  = 0.0;             // 校准总耗时(墙钟)
+		double actualGHz    = 0.0;             // 校准期间实测 CPU 实际频率
 		bool   stable       = false;           // 是否得到有效因子
 	};
 

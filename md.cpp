@@ -4,6 +4,7 @@
 #include <immintrin.h>
 #include <cstdlib>
 #include <cmath>
+#include <thread>
 
 namespace myd {
 
@@ -251,6 +252,19 @@ double g = 1.0;
 
     QueryPerformanceCounter(&wt2);
     res.calibWallMs = (wt2.QuadPart - wt1.QuadPart) * 1000.0 / (double)wf.QuadPart;
+
+    // 测量当前实际频率 (100ms 采样)
+    {
+        LARGE_INTEGER t1, t2;
+        QueryPerformanceCounter(&t1);
+        uint64_t tsc1 = __rdtsc();
+        Sleep(120);
+        uint64_t tsc2 = __rdtsc();
+        QueryPerformanceCounter(&t2);
+        double sec = (double)(t2.QuadPart - t1.QuadPart) / (double)wf.QuadPart;
+        if (sec > 0.0) res.actualGHz = (tsc2 - tsc1) / sec / 1.0e9;
+    }
+
     return res;
 }
 
