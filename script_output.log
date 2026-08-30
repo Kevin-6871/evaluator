@@ -1,0 +1,15 @@
+[INFO] 工具链已加入 PATH
+[INFO] 正在运行 qmake …
+Info: creating stash file C:\Users\shaog\Desktop\mycpp\QT\build_release\.qmake.stash
+[INFO] 正在编译（mingw32-make -j4） …
+C:/Qt/Tools/llvm-mingw1706_64/bin/mingw32-make.exe -f Makefile.Release
+mingw32-make[1]: Entering directory 'C:/Users/shaog/Desktop/mycpp/QT/build_release'
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/main.o ../main.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/md.o ../md.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/selftest.o ../selftest.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/evaluator.o ../evaluator.cpp
+clang++ -Wl,-s -Wl,-subsystem,windows -o release/QT.exe release/main.o release/md.o release/selftest.o release/evaluator.o -ldwmapi -lpsapi -lole32 -lshell32 C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Widgets.a C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Gui.a C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Core.a -lmingw32 C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6EntryPoint.a -lshell32  
+mingw32-make[1]: Leaving directory 'C:/Users/shaog/Desktop/mycpp/QT/build_release'
+[INFO] 编译成功，可执行文件：/c/Users/shaog/Desktop/mycpp/QT/build_release/release/QT.exe
+[INFO] 已复制 QT.exe 到 rele
+[INFO] 正在提取 QT.exe 的 DLL 导入 …

@@ -1,0 +1,224 @@
+Cleaning previous build and rele folders...
+Running qmake...
+Info: creating stash file C:\Users\shaog\Desktop\mycpp\QT\build_release\.qmake.stash
+Building with mingw32-make...
+C:/Qt/Tools/llvm-mingw1706_64/bin/mingw32-make.exe -f Makefile.Release
+mingw32-make[1]: Entering directory 'C:/Users/shaog/Desktop/mycpp/QT/build_release'
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/main.o ../main.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/md.o ../md.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/selftest.o ../selftest.cpp
+clang++ -c -O2 -std=gnu++1z -Wall -Wextra -Wextra -Wno-ignored-attributes -fexceptions -DUNICODE -D_UNICODE -DWIN32 -DMINGW_HAS_SECURE_API=1 -DQT_WIDGETS_HIGHDPI -DQT_NO_DEBUG -DQT_WIDGETS_LIB -DQT_GUI_LIB -DQT_CORE_LIB -DQT_NEEDS_QMAIN -I../../QT -I. -IC:/Qt/6.11.2/llvm-mingw_64/include -IC:/Qt/6.11.2/llvm-mingw_64/include/QtWidgets -IC:/Qt/6.11.2/llvm-mingw_64/include/QtGui -IC:/Qt/6.11.2/llvm-mingw_64/include/QtCore -Irelease -I/include -IC:/Qt/6.11.2/llvm-mingw_64/mkspecs/win32-clang-g++  -o release/evaluator.o ../evaluator.cpp
+clang++ -Wl,-s -Wl,-subsystem,windows -o release/QT.exe release/main.o release/md.o release/selftest.o release/evaluator.o -ldwmapi -lpsapi -lole32 -lshell32 C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Widgets.a C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Gui.a C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6Core.a -lmingw32 C:/Qt/6.11.2/llvm-mingw_64/lib/libQt6EntryPoint.a -lshell32  
+mingw32-make[1]: Leaving directory 'C:/Users/shaog/Desktop/mycpp/QT/build_release'
+Build succeeded: C:\Users\shaog\Desktop\mycpp\QT\build_release\release\QT.exe
+Copied QT.exe to rele
+Extracting DLL dependencies from QT.exe...
+Detected DLLs:
+dwmapi.dll
+Qt6Widgets.dll
+Qt6Gui.dll
+Qt6Core.dll
+libc++.dll
+libunwind.dll
+api-ms-win-crt-heap-l1-1-0.dll
+api-ms-win-crt-math-l1-1-0.dll
+api-ms-win-crt-private-l1-1-0.dll
+api-ms-win-crt-runtime-l1-1-0.dll
+api-ms-win-crt-stdio-l1-1-0.dll
+api-ms-win-crt-string-l1-1-0.dll
+ADVAPI32.dll
+USER32.dll
+KERNEL32.dll
+api-ms-win-crt-multibyte-l1-1-0.dll
+api-ms-win-crt-environment-l1-1-0.dll
+api-ms-win-crt-time-l1-1-0.dll
+SHELL32.dll
+api-ms-win-crt-utility-l1-1-0.dll
+
+Non-system DLLs that need to be copied:
+Qt6Widgets.dll
+Qt6Gui.dll
+Qt6Core.dll
+libc++.dll
+libunwind.dll
+
+Copying required DLLs...
+[COPY] Qt6Widgets.dll from Qt base
+[COPY] Qt6Gui.dll from Qt base
+[COPY] Qt6Core.dll from Qt base
+[COPY] libc++.dll from Qt base
+[COPY] libunwind.dll from Qt base
+
+Copying Qt plugins...
+Join-Path : 找不到接受实际参数“qwindows.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qtuiotouchplugin.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qsvgicon.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qgif.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qico.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qjpeg.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qsvg.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+Join-Path : 找不到接受实际参数“qmodernwindowsstyle.dll”的位置形式参数。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:114 字符: 16
++     $srcFile = Join-Path $QtPlugins $folder $file
++                ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : InvalidArgument: (:) [Join-Path]，ParameterBindingException
+    + FullyQualifiedErrorId : PositionalParameterNotFound,Microsoft.PowerShell.Commands.JoinPathCommand
+ 
+Test-Path : 无法将参数绑定到参数“Path”，因为该参数是空值。
+所在位置 C:\Users\shaog\Desktop\mycpp\QT\Build-And-Pack.ps1:115 字符: 19
++     if (Test-Path $srcFile) {
++                   ~~~~~~~~
+    + CategoryInfo          : InvalidData: (:) [Test-Path]，ParameterBindingValidationException
+    + FullyQualifiedErrorId : ParameterArgumentValidationErrorNullNotAllowed,Microsoft.PowerShell.Commands.TestPathCom 
+   mand
+ 
+
+Verifying final dependencies...
+All DLLs imported by QT.exe:
+dwmapi.dll
+Qt6Widgets.dll
+Qt6Gui.dll
+Qt6Core.dll
+libc++.dll
+libunwind.dll
+api-ms-win-crt-heap-l1-1-0.dll
+api-ms-win-crt-math-l1-1-0.dll
+api-ms-win-crt-private-l1-1-0.dll
+api-ms-win-crt-runtime-l1-1-0.dll
+api-ms-win-crt-stdio-l1-1-0.dll
+api-ms-win-crt-string-l1-1-0.dll
+ADVAPI32.dll
+USER32.dll
+KERNEL32.dll
+api-ms-win-crt-multibyte-l1-1-0.dll
+api-ms-win-crt-environment-l1-1-0.dll
+api-ms-win-crt-time-l1-1-0.dll
+SHELL32.dll
+api-ms-win-crt-utility-l1-1-0.dll
+All non-system DLLs are accounted for.
+
+Running self-test (--selftest)...
+警告: No selftest_result.txt generated.
+Exit code: 0
+
+=== PACKAGING COMPLETE ===
+Release folder: C:\Users\shaog\Desktop\mycpp\QT\rele
+Contents:
+
+
+    目录: C:\Users\shaog\Desktop\mycpp\QT\rele
+
+
+Mode                 LastWriteTime         Length Name                                                                 
+----                 -------------         ------ ----                                                                 
+d-----         2026/8/30     14:04                generic                                                              
+d-----         2026/8/30     14:04                iconengines                                                          
+d-----         2026/8/30     14:04                imageformats                                                         
+-a----        2023/11/29      0:10        1795072 libc++.dll                                                           
+-a----        2023/11/29      0:10         100352 libunwind.dll                                                        
+d-----         2026/8/30     14:04                platforms                                                            
+-a----         2026/8/30     14:04         118784 QT.exe                                                               
+-a----         2026/8/13      7:02       10773304 Qt6Core.dll                                                          
+-a----         2026/8/13      7:03       10901304 Qt6Gui.dll                                                           
+-a----         2026/8/13      7:03        6884152 Qt6Widgets.dll                                                       
+d-----         2026/8/30     14:04                styles                                                               
+
+
