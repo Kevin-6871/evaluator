@@ -7,6 +7,7 @@ SOURCES += main.cpp md.cpp selftest.cpp evaluator.cpp
 HEADERS += md.hpp evaluator.hpp selftest.hpp
 
 LIBS += -ldwmapi -lpsapi
+LIBS += -luser32 -ladvapi32
 
 win32: {
     # 链接 MinGW 运行时库（如果需要）
@@ -21,3 +22,4 @@ DEFINES += QT_WIDGETS_HIGHDPI
 
 TRANSLATIONS += \
     QT_zh_CN.ts
+	

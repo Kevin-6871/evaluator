@@ -144,7 +144,9 @@ class MicaWindow :public QMainWindow {
 		m_coreEdit->setFixedWidth(60);
 		m_coreEdit->setToolTip(coreLabel->toolTip());
 		m_runBtn = new QPushButton("开始评测",this);
-		m_runBtn->setToolTip("编译并运行当前 C++ 源文件,按上方时限/内存/参考机参数评测.");
+		m_runBtn->setToolTip("编译并运行当前 C++ 源文件,自动探测同目录下与源文件同名的测试组\n"
+			"(aaa-N.in / aaa-N.out 或 aaa_N.in / aaa_N.out, N=1..100),\n"
+			"逐个评测并输出汇总表格与综合评价.");
 		m_runBtn->setEnabled(false);
 		connect(m_runBtn,&QPushButton::clicked,this,[this]() {
 			if (m_currentSource.isEmpty()) return;
@@ -161,14 +163,14 @@ class MicaWindow :public QMainWindow {
 			appendOutput("==================== 评测开始 ====================\n");
 			appendOutput("文件:" + m_currentSource + "\n");
 			appendOutput("编译参数:" + flags + "\n");
-			appendOutput("绑核:" + QString(rawCore == -1 ? "不绑(自适应)" :QString::number(rawCore)) + "\n");
+			appendOutput("绑核:" + QString(rawCore == -1 ? "不绑(自适应)" :QString::number(rawCore)) + "\t");
 
 			double refIPC = m_refIPCEdit->text().toDouble();
 			double refGHz = m_refGHEdit->text().toDouble();
 			if (refIPC != m_lastRefIPC || refGHz != m_lastRefGHz) {
 				refreshCalibration();
 			} else {
-				appendOutput(QString("速度因子:%1  (参考机 %2 指令/秒)\n\n")
+				appendOutput(QString("速度因子:%1  (参考机 %2 指令/秒)\n")
 					.arg(myd::OJTimer::getInstance().getSpeedFactor(),0,'f',4)
 					.arg(myd::OJTimer::getInstance().getRefIPS(),0,'f',2));
 			}
@@ -181,46 +183,23 @@ class MicaWindow :public QMainWindow {
 			if (langFactor <= 0.0) langFactor = 1.0;
 			if (wallScale <= 0.0) wallScale = 1.5;
 			if (memLimitMB == 0) memLimitMB = 256;
-			appendOutput(QString("OJ时限:%1 ms   语言因子:%2   硬限比例:%3\n")
+			appendOutput(QString("OJ时限:%1 ms\t语言因子:%2\t硬限比例:%3\t")
 				.arg(ojLimitMs,0,'f',0).arg(langFactor,0,'f',2).arg(wallScale,0,'f',2));
 			appendOutput(QString("内存限制:%1 MB\n").arg(memLimitMB));
 
-			QString compileOut;
-			bool compileOk = m_core->compile(m_currentSource,flags,compileOut,"source");
+			// 多组评测: 探测 aaa-1.in/aaa_2.out 等 (最多 100 组), 逐组运行并汇总表格
+			QVector<TestCaseResult> results;
+			QString compileOut, tableOut;
+			bool evalOk = m_core->evaluateGroups(m_currentSource,flags,core,
+				ojLimitMs,langFactor,wallScale,memLimitMB,
+				compileOut,tableOut,results);
 			appendOutput(compileOut);
-			if (!compileOk) {
+			if (!evalOk) {
 				appendOutput("编译错误 (CE)\n");
 				m_runBtn->setEnabled(true);
 				return;
 			}
-			appendOutput("编译成功\n\n");
-
-			double cpuTime = 0;
-			double wallTime = 0;
-			size_t peakMem = 0;
-			QString runOut;
-			int verdict = JudgeVerdict::RUN_ERR;
-			bool runOk = m_core->run(core,ojLimitMs,langFactor,wallScale,memLimitMB,
-				cpuTime,wallTime,peakMem,runOut,verdict);
-			appendOutput(runOut);
-			if (!runOk) {
-				appendOutput("运行失败\n");
-				m_runBtn->setEnabled(true);
-				return;
-			}
-
-			appendOutput(QString("用户态CPU时间:%1 ms   墙钟用时:%2 ms\n")
-				.arg(cpuTime,0,'f',3).arg(wallTime,0,'f',3));
-			double ojTime = myd::OJTimer::getInstance().toOJTime(cpuTime);
-			appendOutput(QString("标准OJ环境预估用时:%1 ms / 时限 %2 ms\n")
-				.arg(ojTime,0,'f',3).arg(ojLimitMs,0,'f',0));
-			if (verdict == JudgeVerdict::TLE_CPU)
-				appendOutput("判定:时间超限 (TLE-CPU)\n");
-			else if (verdict == JudgeVerdict::TLE_WALL)
-				appendOutput("判定:时间超限 (TLE-WALL)\n");
-			else if (verdict == JudgeVerdict::MLE)
-				appendOutput("判定:内存超限 (MLE)\n");
-			appendOutput(QString("峰值专用内存:%1 MB\n").arg(peakMem / (1024.0 * 1024.0),0,'f',2));
+			appendOutput(tableOut);
 
 			appendOutput("\n==================== 评测结束 ====================\n\n");
 			m_runBtn->setEnabled(true);
@@ -382,14 +361,13 @@ class MicaWindow :public QMainWindow {
 				.arg(res.domainCPUMs[d],0,'f',1)
 				.arg(res.domainFactor[d],0,'f',4));
 		}
-		appendOutput(QString("综合速度因子:%1\n")
+		appendOutput(QString("综合速度因子:%1\t")
 			.arg(res.speedFactor,0,'f',4));
-		appendOutput(QString("校准耗时:%1 ms%2\n")
+		appendOutput(QString("校准耗时:%1 ms%2\t")
 			.arg(res.calibWallMs,0,'f',0)
 			.arg(res.stable ? "" :"  (警告:校准结果异常)"));
-		appendOutput(QString("当前实际频率:%1 GHz\n")
+		appendOutput(QString("当前实际频率:%1 GHz\t")
 			.arg(res.actualGHz,0,'f',2));
-		appendOutput("(提示:若需固定频率,可在 ThrottleStop 中将 Speed Shift 最大设为 30)\n\n");
 		appendOutput("\n==================== 校准结束 ====================\n\n");
 	}
 

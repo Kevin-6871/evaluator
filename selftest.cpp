@@ -29,7 +29,7 @@ QString verdictFromRunOut(const QString &runOut) {
 //  - SleepTest 期望休眠程序被墙钟硬时限终止 (TLE-WALL)
 //  - MemLimit 期望峰值内存超过限制被判定 MLE
 //  - 其余用例期望正确运行并给出 AC/WA
-bool isExpected(const QString &name, const QString &verdict, double cpu, size_t mem) {
+bool isExpected(const QString &name, const QString &verdict, double cpu, size_t mem, bool multiGroup) {
 	if (name == "CompileError")
 		return verdict == "CE";
 	if (name == "MemTest")
@@ -42,6 +42,9 @@ bool isExpected(const QString &name, const QString &verdict, double cpu, size_t 
 		return verdict == "TLE_WALL";
 	if (name == "MemLimit")
 		return verdict == "MLE";
+	// 多组数据目录: 默认期望全部 AC; 名字带 WrongAns 时期望存在非 AC 组
+	if (multiGroup)
+		return name.contains("WrongAns", Qt::CaseInsensitive) ? (verdict == "NONAC") : (verdict == "AC");
 	return verdict == "AC" || verdict == "WA";
 }
 
@@ -113,39 +116,64 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 		QString flags = "-std=c++17 -O2 -Wall";
 
 		EvaluatorCore core(folder + "/");
-		QString comOut;
-		bool compileOk = core.compile(src, flags, comOut, "source");
-
 		QString line;
 		QString verdict;
 		double cpu = 0; double wall = 0; size_t mem = 0;
 
-		if (!compileOk) {
-			line += QString("用例 %1 编译失败\n").arg(name);
-			line += comOut + "\n";
-			verdict = "CE";
+		// 多组数据目录 (base-N.in / base_N.in, N=1..100): 走新评测管线
+		QStringList ins, ans;
+		const int nGroups = core.findTestGroups(src, ins, ans);
+		const bool multiGroup = (nGroups > 0);
+		if (multiGroup) {
+			QString comOut, tableOut;
+			QVector<TestCaseResult> results;
+			bool evalOk = core.evaluateGroups(src, flags, -1, 1000.0, 1.0, 1.5, 512,
+											  comOut, tableOut, results);
+			line += QString("用例 %1 (多组测试点 %2 个)\n").arg(name).arg(nGroups);
+			if (!evalOk) {
+				line += comOut + "\n";
+				verdict = "CE";
+			} else {
+				line += comOut;
+				line += tableOut;
+				int ac = 0;
+				for (const TestCaseResult &r : results) {
+					if (r.verdict == JudgeVerdict::AC) ac++;
+					cpu = qMax(cpu, r.cpuTimeMs);
+					mem = qMax(mem, r.peakMemBytes);
+				}
+				verdict = (ac == results.size() && !results.isEmpty()) ? "AC" : "NONAC";
+			}
 		} else {
-			QString runOut;
-			size_t memLimitMB = (name == "MemLimit") ? 100 : 512;
-			int v = JudgeVerdict::RUN_ERR;
-			bool runOk = core.run(-1, 1000.0, 1.0, 1.5, memLimitMB,
-				cpu, wall, mem, runOut, v);
-			verdict = verdictFromRunOut(runOut);
-			QString status = runOk ? verdict : "RUNFAIL";
-			QString fmt = QString("用例 %1  CPU=%2ms(E) 墙钟=%3ms  内存=%4MB  判读=%5 -> %6\n")
+			QString comOut;
+			bool compileOk = core.compile(src, flags, comOut, "source");
+			if (!compileOk) {
+				line += QString("用例 %1 编译失败\n").arg(name);
+				line += comOut + "\n";
+				verdict = "CE";
+			} else {
+				QString runOut;
+				size_t memLimitMB = (name == "MemLimit") ? 100 : 512;
+				int v = JudgeVerdict::RUN_ERR;
+				bool runOk = core.run(-1, 1000.0, 1.0, 1.5, memLimitMB,
+					cpu, wall, mem, runOut, v);
+				verdict = verdictFromRunOut(runOut);
+				QString status = runOk ? verdict : "RUNFAIL";
+				QString fmt = QString("用例 %1  CPU=%2ms(E) 墙钟=%3ms  内存=%4MB  判读=%5 -> %6\n")
 							  .arg(name)
 							  .arg(cpu, 0, 'f', 3)
 							  .arg(wall, 0, 'f', 3)
 							  .arg(mem / (1024.0 * 1024.0), 0, 'f', 2)
 							  .arg(v)
 							  .arg(status);
-			line += fmt;
-			if (!runOk || verdict == "RUN?") {
-				line += runOut.trimmed() + "\n";
+				line += fmt;
+				if (!runOk || verdict == "RUN?") {
+					line += runOut.trimmed() + "\n";
+				}
 			}
 		}
 
-		if (isExpected(name, verdict, cpu, mem)) {
+		if (isExpected(name, verdict, cpu, mem, multiGroup)) {
 			pass++;
 			line += QString("     → 通过\n");
 		} else {
