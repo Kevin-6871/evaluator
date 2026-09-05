@@ -1,7 +1,21 @@
-name: Windows Build (MSVC 2022)
+name: Windows Build & Release
 
 on:
+  # 手动触发，可指定 Release 名称和说明
   workflow_dispatch:
+    inputs:
+      release_name:
+        description: 'Release 名称（留空则使用 tag 或自动生成）'
+        required: false
+        default: ''
+      release_body:
+        description: 'Release 详细说明（支持多行）'
+        required: false
+        default: ''
+  # tag 推送时自动触发
+  push:
+    tags:
+      - 'v*'
 
 jobs:
   build:
@@ -9,16 +23,16 @@ jobs:
     runs-on: windows-2022
 
     env:
-      QT_VERSION: '6.8.2'
-      QT_ARCH: 'win64_msvc2022_64'
-      EXE_NAME: 'QT.exe'
-      ARCHIVE_NAME: 'QtBuild-Windows-msvc2022'
+      QT_VERSION: 6.8.2
+      QT_ARCH: win64_msvc2022_64
+      EXE_NAME: QT.exe
+      RELEASE_DIR: rele
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 1
+          fetch-depth: 0   # 需要完整历史以获取 tag 信息
 
       - name: Install Qt
         uses: jurplel/install-qt-action@v4
@@ -26,7 +40,7 @@ jobs:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
           setup-python: false
-          cached: false
+          # 移除废弃的 cached 参数
 
       - name: Setup MSVC 2022
         uses: ilammy/msvc-dev-cmd@v1
@@ -42,10 +56,10 @@ jobs:
       - name: Prepare release directory
         shell: pwsh
         run: |
-          $releaseDir = "rele"
-          New-Item -ItemType Directory -Force -Path $releaseDir | Out-Null
-          Copy-Item -Path "release\$env:EXE_NAME" -Destination $releaseDir -Force
-          echo "RELEASE_DIR=$releaseDir" >> $env:GITHUB_ENV
+          New-Item -ItemType Directory -Force -Path $env:RELEASE_DIR | Out-Null
+          Copy-Item -Path "release\$env:EXE_NAME" -Destination $env:RELEASE_DIR -Force
+          # 复制依赖（windeployqt 将在下一步处理）
+          echo "RELEASE_DIR=$env:RELEASE_DIR" >> $env:GITHUB_ENV
 
       - name: Deploy dependencies with windeployqt
         shell: pwsh
@@ -71,15 +85,24 @@ jobs:
             }
           }
 
-      - name: Create archive
-        shell: pwsh
-        run: |
-          $archive = "$env:ARCHIVE_NAME.zip"
-          Compress-Archive -Path "$env:RELEASE_DIR\*" -DestinationPath $archive
-          echo "ARCHIVE_PATH=$archive" >> $env:GITHUB_ENV
-
+      # 上传构建产物作为 Artifact（用于调试或后续使用）
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: ${{ env.ARCHIVE_NAME }}
-          path: ${{ env.ARCHIVE_PATH }}
+          name: QtBuild-Windows-msvc2022
+          path: ${{ env.RELEASE_DIR }}
+
+      # 发布到 GitHub Release
+      - name: Create Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        if: |
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.release_name != '') ||
+          startsWith(github.ref, 'refs/tags/')
+        with:
+          name: ${{ github.event.inputs.release_name || github.ref_name }}
+          body: ${{ github.event.inputs.release_body || '' }}
+          files: |
+            ${{ env.RELEASE_DIR }}/*
+          token: ${{ secrets.GITHUB_TOKEN }}
+          draft: false
+          prerelease: false
