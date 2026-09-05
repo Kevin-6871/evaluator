@@ -13,6 +13,7 @@ jobs:
       QT_ARCH: 'win64_msvc2022_64'
       EXE_NAME: 'QT.exe'
       ARCHIVE_NAME: 'QtBuild-Windows-msvc2022'
+      aqtsource: "https://download.qt.io/online/qtsdkrepository/"
 
     steps:
       - name: Checkout repository
