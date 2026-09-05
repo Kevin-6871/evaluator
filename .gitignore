@@ -3,3 +3,5 @@ build/
 *.user
 *.pro.user
 .opencode/
+agent-use/
+mboj_config.json

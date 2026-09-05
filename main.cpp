@@ -69,11 +69,9 @@ class CustomLineEdit :public QLineEdit {
 class CardWidget :public QFrame {
   public:
 	using QFrame::QFrame;
-	void setCardEnabled(bool enabled) { m_enabled = enabled; update(); }
   protected:
 	void paintEvent(QPaintEvent *event) override {
 		Q_UNUSED(event);
-		if (!m_enabled) return;   // 最外层悬浮边框关闭: 不画背景/边框
 		QPainter painter(this);
 		painter.setRenderHint(QPainter::Antialiasing);
 		bool darkMode = false;
@@ -91,8 +89,6 @@ class CardWidget :public QFrame {
 		painter.setPen(borderColor);
 		painter.drawPath(path);
 	}
-  private:
-	bool m_enabled = true;
 };
 
 // ==================== 3. 应用设置 (跨重启持久化: ./ 优先, AppData 回退, 双写同步) ====================
@@ -184,121 +180,119 @@ static void saveSettings(const SettingsData &d) {
 // ==================== 5. 设置子窗口 (仅关闭按钮, 固定大小, 非模态) ====================
 class SettingsDialog : public QDialog {
   public:
-	explicit SettingsDialog(SettingsData *data, QWidget *parent = nullptr)
-		: QDialog(parent), m_data(data) {
-		setWindowTitle("设置");
-		setFixedSize(540, 660);
-		setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
-		setWindowModality(Qt::NonModal);
+explicit SettingsDialog(SettingsData *data, QWidget *parent = nullptr)
+: QDialog(parent), m_data(data) {
+setWindowTitle("设置");
+setAttribute(Qt::WA_TranslucentBackground);
+setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
+setWindowModality(Qt::NonModal);
 
-		QVBoxLayout *root = new QVBoxLayout(this);
+QVBoxLayout *root = new QVBoxLayout(this);
+root->setContentsMargins(8,8,8,8);
+CardWidget *card = new CardWidget(this);
+QVBoxLayout *cl = new QVBoxLayout(card);
+cl->setContentsMargins(12,12,12,12);
+cl->setSpacing(8);
 
-		QGroupBox *g1 = new QGroupBox("评测参数", this);
-		QFormLayout *f1 = new QFormLayout(g1);
-		m_refFactorSpin = new QDoubleSpinBox(this);
-		m_refFactorSpin->setRange(0.1, 100.0); m_refFactorSpin->setDecimals(2);
-		m_refFactorSpin->setValue(m_data->refFactor);
-		f1->addRow("参考机因子 (IPC×GHz):", m_refFactorSpin);
-		m_tleHardSpin = new QDoubleSpinBox(this);
-		m_tleHardSpin->setRange(0.1, 10.0); m_tleHardSpin->setDecimals(2);
-		m_tleHardSpin->setValue(m_data->tleHardScale);
-		f1->addRow("TLE 硬线比例:", m_tleHardSpin);
-		m_memHardSpin = new QDoubleSpinBox(this);
-		m_memHardSpin->setRange(0.1, 10.0); m_memHardSpin->setDecimals(2);
-		m_memHardSpin->setValue(m_data->memHardScale);
-		f1->addRow("MEM 硬线比例:", m_memHardSpin);
-		root->addWidget(g1);
+QGroupBox *g1 = new QGroupBox("评测参数", card);
+QFormLayout *f1 = new QFormLayout(g1);
+m_refFactorSpin = new QDoubleSpinBox(g1);
+m_refFactorSpin->setRange(0.1, 100.0); m_refFactorSpin->setDecimals(2);
+m_refFactorSpin->setValue(m_data->refFactor);
+f1->addRow("参考机因子 (IPC×GHz):", m_refFactorSpin);
+m_tleHardSpin = new QDoubleSpinBox(g1);
+m_tleHardSpin->setRange(0.1, 10.0); m_tleHardSpin->setDecimals(2);
+m_tleHardSpin->setValue(m_data->tleHardScale);
+f1->addRow("TLE 硬线比例:", m_tleHardSpin);
+m_memHardSpin = new QDoubleSpinBox(g1);
+m_memHardSpin->setRange(0.1, 10.0); m_memHardSpin->setDecimals(2);
+m_memHardSpin->setValue(m_data->memHardScale);
+f1->addRow("MEM 硬线比例:", m_memHardSpin);
+cl->addWidget(g1);
 
-		QGroupBox *g2 = new QGroupBox("热键", this);
-		QFormLayout *f2 = new QFormLayout(g2);
-		m_runHotEdit = new QKeySequenceEdit(this);
-		m_runHotEdit->setKeySequence(QKeySequence(m_data->runHotkey));
-		f2->addRow("开始评测:", m_runHotEdit);
-		m_browseHotEdit = new QKeySequenceEdit(this);
-		m_browseHotEdit->setKeySequence(QKeySequence(m_data->browseHotkey));
-		f2->addRow("浏览文件:", m_browseHotEdit);
-		m_settingsHotEdit = new QKeySequenceEdit(this);
-		m_settingsHotEdit->setKeySequence(QKeySequence(m_data->settingsHotkey));
-		f2->addRow("打开设置:", m_settingsHotEdit);
-		root->addWidget(g2);
+QGroupBox *g2 = new QGroupBox("热键", card);
+QFormLayout *f2 = new QFormLayout(g2);
+m_runHotEdit = new QKeySequenceEdit(g2);
+m_runHotEdit->setKeySequence(QKeySequence(m_data->runHotkey));
+f2->addRow("开始评测:", m_runHotEdit);
+m_browseHotEdit = new QKeySequenceEdit(g2);
+m_browseHotEdit->setKeySequence(QKeySequence(m_data->browseHotkey));
+f2->addRow("浏览文件:", m_browseHotEdit);
+m_settingsHotEdit = new QKeySequenceEdit(g2);
+m_settingsHotEdit->setKeySequence(QKeySequence(m_data->settingsHotkey));
+f2->addRow("打开设置:", m_settingsHotEdit);
+cl->addWidget(g2);
 
-		QGroupBox *g3 = new QGroupBox("UI 美观", this);
-		QFormLayout *f3 = new QFormLayout(g3);
-		m_micaCheck = new QCheckBox("Mica 背景", this);
-		m_micaCheck->setChecked(m_data->micaEnabled);
-		f3->addRow("", m_micaCheck);
-		m_cardCheck = new QCheckBox("最外层悬浮边框", this);
-		m_cardCheck->setChecked(m_data->cardEnabled);
-		f3->addRow("", m_cardCheck);
-		m_scrollCheck = new QCheckBox("结果区按行滚动", this);
-		m_scrollCheck->setChecked(m_data->lineScroll);
-		f3->addRow("", m_scrollCheck);
-		m_alphaSlider = new QSlider(Qt::Horizontal, this);
-		m_alphaSlider->setRange(60, 255);
-		m_alphaSlider->setValue(m_data->inputAlpha);
-		f3->addRow("输入框透明度:", m_alphaSlider);
-		root->addWidget(g3);
+g1->setStyleSheet("background: transparent;");
+g2->setStyleSheet("background: transparent;");
 
-		QHBoxLayout *btns = new QHBoxLayout();
-		QPushButton *defBtn = new QPushButton("恢复默认", this);
-		QPushButton *closeBtn = new QPushButton("关闭", this);
-		btns->addWidget(defBtn); btns->addStretch(); btns->addWidget(closeBtn);
-		root->addLayout(btns);
+QHBoxLayout *btns = new QHBoxLayout();
+QPushButton *defBtn = new QPushButton("恢复默认", card);
+QPushButton *closeBtn = new QPushButton("关闭", card);
+btns->addWidget(defBtn); btns->addStretch(); btns->addWidget(closeBtn);
+cl->addLayout(btns);
+root->addWidget(card);
 
-		connect(defBtn, &QPushButton::clicked, this, [this]() {
-			SettingsData d;
-			m_refFactorSpin->setValue(d.refFactor);
-			m_tleHardSpin->setValue(d.tleHardScale);
-			m_memHardSpin->setValue(d.memHardScale);
-			m_micaCheck->setChecked(d.micaEnabled);
-			m_cardCheck->setChecked(d.cardEnabled);
-			m_scrollCheck->setChecked(d.lineScroll);
-			m_alphaSlider->setValue(d.inputAlpha);
-			m_runHotEdit->setKeySequence(QKeySequence(d.runHotkey));
-			m_browseHotEdit->setKeySequence(QKeySequence(d.browseHotkey));
-			m_settingsHotEdit->setKeySequence(QKeySequence(d.settingsHotkey));
-		});
-		connect(closeBtn, &QPushButton::clicked, this, [this]() {
-			commit(); done(QDialog::Accepted);
-		});
-	}
+setFixedSize(560, 420);
 
-	void commit() {
-		m_data->refFactor      = m_refFactorSpin->value();
-		m_data->tleHardScale   = m_tleHardSpin->value();
-		m_data->memHardScale   = m_memHardSpin->value();
-		m_data->micaEnabled    = m_micaCheck->isChecked();
-		m_data->cardEnabled    = m_cardCheck->isChecked();
-		m_data->lineScroll     = m_scrollCheck->isChecked();
-		m_data->inputAlpha     = m_alphaSlider->value();
-		m_data->runHotkey      = m_runHotEdit->keySequence().toString();
-		m_data->browseHotkey   = m_browseHotEdit->keySequence().toString();
-		m_data->settingsHotkey = m_settingsHotEdit->keySequence().toString();
-		if (m_data->runHotkey.isEmpty())      m_data->runHotkey = "F5";
-		if (m_data->browseHotkey.isEmpty())   m_data->browseHotkey = "Ctrl+O";
-		if (m_data->settingsHotkey.isEmpty()) m_data->settingsHotkey = "Ctrl+,";
-		saveSettings(*m_data);
-	}
+connect(defBtn, &QPushButton::clicked, this, [this]() {
+SettingsData d;
+m_refFactorSpin->setValue(d.refFactor);
+m_tleHardSpin->setValue(d.tleHardScale);
+m_memHardSpin->setValue(d.memHardScale);
+m_runHotEdit->setKeySequence(QKeySequence(d.runHotkey));
+m_browseHotEdit->setKeySequence(QKeySequence(d.browseHotkey));
+m_settingsHotEdit->setKeySequence(QKeySequence(d.settingsHotkey));
+});
+connect(closeBtn, &QPushButton::clicked, this, [this]() {
+commit(); done(QDialog::Accepted);
+});
+}
+
+void commit() {
+m_data->refFactor      = m_refFactorSpin->value();
+m_data->tleHardScale   = m_tleHardSpin->value();
+m_data->memHardScale   = m_memHardSpin->value();
+m_data->runHotkey      = m_runHotEdit->keySequence().toString();
+m_data->browseHotkey   = m_browseHotEdit->keySequence().toString();
+m_data->settingsHotkey = m_settingsHotEdit->keySequence().toString();
+if (m_data->runHotkey.isEmpty())      m_data->runHotkey = "F5";
+if (m_data->browseHotkey.isEmpty())   m_data->browseHotkey = "Ctrl+O";
+if (m_data->settingsHotkey.isEmpty()) m_data->settingsHotkey = "Ctrl+,";
+saveSettings(*m_data);
+}
 
   protected:
-	void reject() override {
-		commit(); QDialog::reject();
-	}
+void showEvent(QShowEvent *e) override {
+QDialog::showEvent(e);
+#ifdef Q_OS_WIN
+HWND hwnd = reinterpret_cast<HWND>(this->winId());
+if (!hwnd) return;
+MARGINS margins = { -1,-1,-1,-1 };
+DwmExtendFrameIntoClientArea(hwnd, &margins);
+int micaType = 2;
+DwmSetWindowAttribute(hwnd, 38, &micaType, sizeof(micaType));
+DWORD value = 1; DWORD size = sizeof(value);
+BOOL useDark = TRUE;
+if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", L"AppsUseLightTheme", RRF_RT_DWORD, NULL, &value, &size) == ERROR_SUCCESS)
+useDark = (value == 0) ? TRUE : FALSE;
+DwmSetWindowAttribute(hwnd, 20, &useDark, sizeof(useDark));
+SetWindowPos(hwnd, NULL, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
+#endif
+}
+void reject() override {
+commit(); QDialog::reject();
+}
 
   private:
-	SettingsData *m_data;
-	QDoubleSpinBox *m_refFactorSpin;
-	QDoubleSpinBox *m_tleHardSpin;
-	QDoubleSpinBox *m_memHardSpin;
-	QKeySequenceEdit *m_runHotEdit;
-	QKeySequenceEdit *m_browseHotEdit;
-	QKeySequenceEdit *m_settingsHotEdit;
-	QCheckBox *m_micaCheck;
-	QCheckBox *m_cardCheck;
-	QCheckBox *m_scrollCheck;
-	QSlider *m_alphaSlider;
+SettingsData *m_data;
+QDoubleSpinBox *m_refFactorSpin;
+QDoubleSpinBox *m_tleHardSpin;
+QDoubleSpinBox *m_memHardSpin;
+QKeySequenceEdit *m_runHotEdit;
+QKeySequenceEdit *m_browseHotEdit;
+QKeySequenceEdit *m_settingsHotEdit;
 };
-
 // ==================== 6. Mica 核心窗口 ====================
 class MicaWindow :public QMainWindow {
   public:
@@ -593,16 +587,6 @@ class MicaWindow :public QMainWindow {
 		connect(dlg, &QDialog::finished, this, [this](int) { applySettings(); });
 		dlg->setAttribute(Qt::WA_DeleteOnClose);
 		dlg->show();
-	}
-
-	void enableSolidFallback() {
-		QWidget *c = centralWidget();
-		if (!c) return;
-		QColor bg = isDarkMode() ? QColor(32,32,32) : QColor(240,240,240);
-		QPalette pal = c->palette();
-		pal.setColor(QPalette::Window, bg);
-		c->setPalette(pal);
-		c->setAutoFillBackground(true);
 	}
 
 	void appendOutput(const QString &text) {
