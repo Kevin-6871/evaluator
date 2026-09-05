@@ -63,6 +63,9 @@ Write-Info "PowerShell 版本: $($PSVersionTable.PSVersion.ToString())"
 # ==========================================================
 # 第0步：定位 Qt 工具链目录
 # ==========================================================
+
+Set-Location -Path "C:\Users\shaog\Desktop\mycpp\QT"
+
 function Find-QtToolchainDir {
     if ($QtToolchainDir) {
         Write-Info "使用参数指定的 Qt 工具链目录: $QtToolchainDir" -Color "Green"

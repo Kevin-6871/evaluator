@@ -79,7 +79,7 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 	}
 
 	myd::OJTimerResult calib = myd::OJTimer::getInstance()
-		.doCalibrate(-1, myd::kDefaultRefIPC, myd::kDefaultRefGHz);
+		.doCalibrate(-1, myd::kDefaultRefFactor);
 
 	QStringList folders = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
 	folders.sort();
@@ -88,8 +88,8 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 	header += "========== 评测器可用性自测 ==========\n";
 	header += "工具链: " + compiler + "\n";
 	header += "版本: " + ver.split("\n").first() + "\n";
-	header += QString("参考机: %1 IPC × %2 GHz = %3 指令/秒\n")
-		.arg(myd::kDefaultRefIPC, 0, 'f', 2).arg(myd::kDefaultRefGHz, 0, 'f', 2)
+	header += QString("参考机因子: %1 (IPC×GHz), 参考指令数 = %2 指令/秒\n")
+		.arg(myd::kDefaultRefFactor, 0, 'f', 2)
 		.arg(calib.refIPS, 0, 'f', 2);
 	static const char* const domName[4] = { "整型", "浮点", "内存", "分支" };
 	for (int d = 0; d < 4; ++d) {
@@ -127,7 +127,8 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 		if (multiGroup) {
 			QString comOut, tableOut;
 			QVector<TestCaseResult> results;
-			bool evalOk = core.evaluateGroups(src, flags, -1, 1000.0, 1.0, 1.5, 512,
+			JudgeLimits limits;
+			bool evalOk = core.evaluateGroups(src, flags, -1, limits,
 											  comOut, tableOut, results);
 			line += QString("用例 %1 (多组测试点 %2 个)\n").arg(name).arg(nGroups);
 			if (!evalOk) {
@@ -153,9 +154,10 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 				verdict = "CE";
 			} else {
 				QString runOut;
-				size_t memLimitMB = (name == "MemLimit") ? 100 : 512;
+				JudgeLimits limits;
+				limits.memLimitMB = (name == "MemLimit") ? 100 : 512;
 				int v = JudgeVerdict::RUN_ERR;
-				bool runOk = core.run(-1, 1000.0, 1.0, 1.5, memLimitMB,
+				bool runOk = core.run(-1, limits,
 					cpu, wall, mem, runOut, v);
 				verdict = verdictFromRunOut(runOut);
 				QString status = runOk ? verdict : "RUNFAIL";

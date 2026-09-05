@@ -21,6 +21,19 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QTemporaryDir>
+#include <QScrollBar>
+#include <QStandardPaths>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QDateTime>
+#include <QDialog>
+#include <QGroupBox>
+#include <QFormLayout>
+#include <QDoubleSpinBox>
+#include <QKeySequenceEdit>
+#include <QShortcut>
+#include <QCheckBox>
+#include <QSlider>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -56,9 +69,11 @@ class CustomLineEdit :public QLineEdit {
 class CardWidget :public QFrame {
   public:
 	using QFrame::QFrame;
+	void setCardEnabled(bool enabled) { m_enabled = enabled; update(); }
   protected:
 	void paintEvent(QPaintEvent *event) override {
 		Q_UNUSED(event);
+		if (!m_enabled) return;   // 最外层悬浮边框关闭: 不画背景/边框
 		QPainter painter(this);
 		painter.setRenderHint(QPainter::Antialiasing);
 		bool darkMode = false;
@@ -76,9 +91,215 @@ class CardWidget :public QFrame {
 		painter.setPen(borderColor);
 		painter.drawPath(path);
 	}
+  private:
+	bool m_enabled = true;
 };
 
-// ==================== 3. Mica 核心窗口 ====================
+// ==================== 3. 应用设置 (跨重启持久化: ./ 优先, AppData 回退, 双写同步) ====================
+struct SettingsData {
+	double refFactor      = 3.0;    // 参考机因子 IPC×GHz (参考指令数 = 因子 × 1e8)
+	double tleHardScale   = 1.5;    // TLE 硬线比例 (墙钟 = CPU 软限 × 此值)
+	double memHardScale   = 1.5;    // MEM 硬线比例 (内存硬杀线 = 软限 × 此值)
+	QString runHotkey     = "F5";
+	QString browseHotkey  = "Ctrl+O";
+	QString settingsHotkey = "Ctrl+,";
+};
+
+static QString settingsPortablePath() { return QDir::currentPath() + "/mboj_config.json"; }
+static QString settingsAppDataPath() {
+	return QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/mboj_config.json";
+}
+
+static double settingsSavedAtOf(const QString &path) {
+	QFile f(path);
+	if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return -1.0;
+	QJsonDocument doc = QJsonDocument::fromJson(f.readAll());
+	f.close();
+	if (!doc.isObject()) return -1.0;
+	return doc.object().value("savedAt").toDouble(-1.0);
+}
+
+static SettingsData loadSettings() {
+	SettingsData d;
+	QStringList cands;
+	const QString p = settingsPortablePath();
+	const QString a = settingsAppDataPath();
+	if (QFileInfo::exists(p)) cands << p;
+	if (QFileInfo::exists(a)) cands << a;
+	QString best; double bestT = -1.0;
+	for (const QString &c : cands) {
+		const double t = settingsSavedAtOf(c);
+		if (t > bestT) { bestT = t; best = c; }
+	}
+	if (best.isEmpty()) return d;
+	QFile f(best);
+	if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) return d;
+	QJsonObject o = QJsonDocument::fromJson(f.readAll()).object();
+	f.close();
+	d.refFactor      = o.value("refFactor").toDouble(3.0);
+	d.tleHardScale   = o.value("tleHardScale").toDouble(1.5);
+	d.memHardScale   = o.value("memHardScale").toDouble(1.5);
+	d.runHotkey      = o.value("runHotkey").toString("F5");
+	d.browseHotkey   = o.value("browseHotkey").toString("Ctrl+O");
+	d.settingsHotkey = o.value("settingsHotkey").toString("Ctrl+,");
+	if (d.refFactor <= 0.0) d.refFactor = 3.0;
+	if (d.tleHardScale <= 0.0) d.tleHardScale = 1.5;
+	if (d.memHardScale <= 0.0) d.memHardScale = 1.5;
+	return d;
+}
+
+static void saveSettings(const SettingsData &d) {
+	QJsonObject o;
+	o["refFactor"]      = d.refFactor;
+	o["tleHardScale"]   = d.tleHardScale;
+	o["memHardScale"]   = d.memHardScale;
+	o["runHotkey"]      = d.runHotkey;
+	o["browseHotkey"]   = d.browseHotkey;
+	o["settingsHotkey"] = d.settingsHotkey;
+	o["savedAt"]        = (double)QDateTime::currentMSecsSinceEpoch();
+	const QByteArray ba = QJsonDocument(o).toJson(QJsonDocument::Indented);
+
+	// 主写 ./ ; 失败回退 AppData
+	bool primaryOk = false;
+	QFile pf(settingsPortablePath());
+	if (pf.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+		pf.write(ba); pf.close(); primaryOk = true;
+	}
+	if (!primaryOk) {
+		QFile af(settingsAppDataPath());
+		QDir().mkpath(QFileInfo(settingsAppDataPath()).absolutePath());
+		if (af.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+			af.write(ba); af.close();
+		}
+	} else {
+		// 双写镜像, 保证只读目录下次启动也能读到最新值
+		QFile af(settingsAppDataPath());
+		QDir().mkpath(QFileInfo(settingsAppDataPath()).absolutePath());
+		if (af.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+			af.write(ba); af.close();
+		}
+	}
+}
+
+// ==================== 5. 设置子窗口 (仅关闭按钮, 固定大小, 非模态) ====================
+class SettingsDialog : public QDialog {
+  public:
+	explicit SettingsDialog(SettingsData *data, QWidget *parent = nullptr)
+		: QDialog(parent), m_data(data) {
+		setWindowTitle("设置");
+		setFixedSize(540, 660);
+		setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
+		setWindowModality(Qt::NonModal);
+
+		QVBoxLayout *root = new QVBoxLayout(this);
+
+		QGroupBox *g1 = new QGroupBox("评测参数", this);
+		QFormLayout *f1 = new QFormLayout(g1);
+		m_refFactorSpin = new QDoubleSpinBox(this);
+		m_refFactorSpin->setRange(0.1, 100.0); m_refFactorSpin->setDecimals(2);
+		m_refFactorSpin->setValue(m_data->refFactor);
+		f1->addRow("参考机因子 (IPC×GHz):", m_refFactorSpin);
+		m_tleHardSpin = new QDoubleSpinBox(this);
+		m_tleHardSpin->setRange(0.1, 10.0); m_tleHardSpin->setDecimals(2);
+		m_tleHardSpin->setValue(m_data->tleHardScale);
+		f1->addRow("TLE 硬线比例:", m_tleHardSpin);
+		m_memHardSpin = new QDoubleSpinBox(this);
+		m_memHardSpin->setRange(0.1, 10.0); m_memHardSpin->setDecimals(2);
+		m_memHardSpin->setValue(m_data->memHardScale);
+		f1->addRow("MEM 硬线比例:", m_memHardSpin);
+		root->addWidget(g1);
+
+		QGroupBox *g2 = new QGroupBox("热键", this);
+		QFormLayout *f2 = new QFormLayout(g2);
+		m_runHotEdit = new QKeySequenceEdit(this);
+		m_runHotEdit->setKeySequence(QKeySequence(m_data->runHotkey));
+		f2->addRow("开始评测:", m_runHotEdit);
+		m_browseHotEdit = new QKeySequenceEdit(this);
+		m_browseHotEdit->setKeySequence(QKeySequence(m_data->browseHotkey));
+		f2->addRow("浏览文件:", m_browseHotEdit);
+		m_settingsHotEdit = new QKeySequenceEdit(this);
+		m_settingsHotEdit->setKeySequence(QKeySequence(m_data->settingsHotkey));
+		f2->addRow("打开设置:", m_settingsHotEdit);
+		root->addWidget(g2);
+
+		QGroupBox *g3 = new QGroupBox("UI 美观", this);
+		QFormLayout *f3 = new QFormLayout(g3);
+		m_micaCheck = new QCheckBox("Mica 背景", this);
+		m_micaCheck->setChecked(m_data->micaEnabled);
+		f3->addRow("", m_micaCheck);
+		m_cardCheck = new QCheckBox("最外层悬浮边框", this);
+		m_cardCheck->setChecked(m_data->cardEnabled);
+		f3->addRow("", m_cardCheck);
+		m_scrollCheck = new QCheckBox("结果区按行滚动", this);
+		m_scrollCheck->setChecked(m_data->lineScroll);
+		f3->addRow("", m_scrollCheck);
+		m_alphaSlider = new QSlider(Qt::Horizontal, this);
+		m_alphaSlider->setRange(60, 255);
+		m_alphaSlider->setValue(m_data->inputAlpha);
+		f3->addRow("输入框透明度:", m_alphaSlider);
+		root->addWidget(g3);
+
+		QHBoxLayout *btns = new QHBoxLayout();
+		QPushButton *defBtn = new QPushButton("恢复默认", this);
+		QPushButton *closeBtn = new QPushButton("关闭", this);
+		btns->addWidget(defBtn); btns->addStretch(); btns->addWidget(closeBtn);
+		root->addLayout(btns);
+
+		connect(defBtn, &QPushButton::clicked, this, [this]() {
+			SettingsData d;
+			m_refFactorSpin->setValue(d.refFactor);
+			m_tleHardSpin->setValue(d.tleHardScale);
+			m_memHardSpin->setValue(d.memHardScale);
+			m_micaCheck->setChecked(d.micaEnabled);
+			m_cardCheck->setChecked(d.cardEnabled);
+			m_scrollCheck->setChecked(d.lineScroll);
+			m_alphaSlider->setValue(d.inputAlpha);
+			m_runHotEdit->setKeySequence(QKeySequence(d.runHotkey));
+			m_browseHotEdit->setKeySequence(QKeySequence(d.browseHotkey));
+			m_settingsHotEdit->setKeySequence(QKeySequence(d.settingsHotkey));
+		});
+		connect(closeBtn, &QPushButton::clicked, this, [this]() {
+			commit(); done(QDialog::Accepted);
+		});
+	}
+
+	void commit() {
+		m_data->refFactor      = m_refFactorSpin->value();
+		m_data->tleHardScale   = m_tleHardSpin->value();
+		m_data->memHardScale   = m_memHardSpin->value();
+		m_data->micaEnabled    = m_micaCheck->isChecked();
+		m_data->cardEnabled    = m_cardCheck->isChecked();
+		m_data->lineScroll     = m_scrollCheck->isChecked();
+		m_data->inputAlpha     = m_alphaSlider->value();
+		m_data->runHotkey      = m_runHotEdit->keySequence().toString();
+		m_data->browseHotkey   = m_browseHotEdit->keySequence().toString();
+		m_data->settingsHotkey = m_settingsHotEdit->keySequence().toString();
+		if (m_data->runHotkey.isEmpty())      m_data->runHotkey = "F5";
+		if (m_data->browseHotkey.isEmpty())   m_data->browseHotkey = "Ctrl+O";
+		if (m_data->settingsHotkey.isEmpty()) m_data->settingsHotkey = "Ctrl+,";
+		saveSettings(*m_data);
+	}
+
+  protected:
+	void reject() override {
+		commit(); QDialog::reject();
+	}
+
+  private:
+	SettingsData *m_data;
+	QDoubleSpinBox *m_refFactorSpin;
+	QDoubleSpinBox *m_tleHardSpin;
+	QDoubleSpinBox *m_memHardSpin;
+	QKeySequenceEdit *m_runHotEdit;
+	QKeySequenceEdit *m_browseHotEdit;
+	QKeySequenceEdit *m_settingsHotEdit;
+	QCheckBox *m_micaCheck;
+	QCheckBox *m_cardCheck;
+	QCheckBox *m_scrollCheck;
+	QSlider *m_alphaSlider;
+};
+
+// ==================== 6. Mica 核心窗口 ====================
 class MicaWindow :public QMainWindow {
   public:
 	MicaWindow(QWidget *parent = nullptr) :QMainWindow(parent) {
@@ -86,6 +307,7 @@ class MicaWindow :public QMainWindow {
 		resize(780,580);
 		setAttribute(Qt::WA_TranslucentBackground);
 		setAttribute(Qt::WA_OpaquePaintEvent);
+		m_settings = loadSettings();
 
 		QWidget *central = new QWidget(this);
 		setCentralWidget(central);
@@ -95,13 +317,15 @@ class MicaWindow :public QMainWindow {
 		mainLayout->setContentsMargins(8,8,8,8);
 		mainLayout->setSpacing(4);
 
-		CardWidget *cardWidget = new CardWidget(this);
-		QVBoxLayout *cardLayout = new QVBoxLayout(cardWidget);
+		m_cardWidget = new CardWidget(this);
+		QVBoxLayout *cardLayout = new QVBoxLayout(m_cardWidget);
 		cardLayout->setContentsMargins(10,10,10,10);
 		cardLayout->setSpacing(4);
 
 		m_outputEdit = new QTextEdit(this);
 		m_outputEdit->setReadOnly(true);
+		// 结果区按行滚动 (匹配 Windows 默认 3 行/格)
+		m_outputEdit->verticalScrollBar()->setSingleStep(m_outputEdit->fontMetrics().height());
 
 		QHBoxLayout *pathLayout = new QHBoxLayout();
 		pathLayout->setSpacing(4);
@@ -148,6 +372,9 @@ class MicaWindow :public QMainWindow {
 			"(aaa-N.in / aaa-N.out 或 aaa_N.in / aaa_N.out, N=1..100),\n"
 			"逐个评测并输出汇总表格与综合评价.");
 		m_runBtn->setEnabled(false);
+		m_settingsBtn = new QPushButton("⚙ 设置",this);
+		m_settingsBtn->setToolTip("打开设置 (参考机因子/硬线比例/热键/UI 美观).");
+		connect(m_settingsBtn,&QPushButton::clicked,this,[this]() { openSettings(); });
 		connect(m_runBtn,&QPushButton::clicked,this,[this]() {
 			if (m_currentSource.isEmpty()) return;
 			QString flags = m_flagsEdit->text();
@@ -165,9 +392,9 @@ class MicaWindow :public QMainWindow {
 			appendOutput("编译参数:" + flags + "\n");
 			appendOutput("绑核:" + QString(rawCore == -1 ? "不绑(自适应)" :QString::number(rawCore)) + "\t");
 
-			double refIPC = m_refIPCEdit->text().toDouble();
-			double refGHz = m_refGHEdit->text().toDouble();
-			if (refIPC != m_lastRefIPC || refGHz != m_lastRefGHz) {
+			double refFactor = m_refFactorEdit->text().toDouble();
+			if (refFactor <= 0.0) refFactor = myd::kDefaultRefFactor;
+			if (refFactor != m_lastRefFactor) {
 				refreshCalibration();
 			} else {
 				appendOutput(QString("速度因子:%1  (参考机 %2 指令/秒)\n")
@@ -175,23 +402,21 @@ class MicaWindow :public QMainWindow {
 					.arg(myd::OJTimer::getInstance().getRefIPS(),0,'f',2));
 			}
 
-			double ojLimitMs = m_ojLimitEdit->text().toDouble();
-			double langFactor = m_langFactorEdit->text().toDouble();
-			double wallScale = m_wallScaleEdit->text().toDouble();
-			unsigned long long memLimitMB = m_memLimitEdit->text().toULongLong();
-			if (ojLimitMs <= 0.0) ojLimitMs = 1000.0;
-			if (langFactor <= 0.0) langFactor = 1.0;
-			if (wallScale <= 0.0) wallScale = 1.5;
-			if (memLimitMB == 0) memLimitMB = 256;
-			appendOutput(QString("OJ时限:%1 ms\t语言因子:%2\t硬限比例:%3\t")
-				.arg(ojLimitMs,0,'f',0).arg(langFactor,0,'f',2).arg(wallScale,0,'f',2));
-			appendOutput(QString("内存限制:%1 MB\n").arg(memLimitMB));
+			JudgeLimits limits;
+			limits.ojLimitMs     = m_ojLimitEdit->text().toDouble();
+			limits.memLimitMB    = m_memLimitEdit->text().toULongLong();
+			limits.tleHardScale  = m_settings.tleHardScale;
+			limits.memHardScale  = m_settings.memHardScale;
+			if (limits.ojLimitMs <= 0.0) limits.ojLimitMs = 1000.0;
+			if (limits.memLimitMB == 0) limits.memLimitMB = 256;
+			appendOutput(QString("OJ时限:%1 ms\t内存限制:%2 MB\n")
+				.arg(limits.ojLimitMs,0,'f',0).arg(limits.memLimitMB));
 
 			// 多组评测: 探测 aaa-1.in/aaa_2.out 等 (最多 100 组), 逐组运行并汇总表格
 			QVector<TestCaseResult> results;
 			QString compileOut, tableOut;
 			bool evalOk = m_core->evaluateGroups(m_currentSource,flags,core,
-				ojLimitMs,langFactor,wallScale,memLimitMB,
+				limits,
 				compileOut,tableOut,results);
 			appendOutput(compileOut);
 			if (!evalOk) {
@@ -218,27 +443,14 @@ class MicaWindow :public QMainWindow {
 		m_ojLimitEdit = new CustomLineEdit(this);
 		m_ojLimitEdit->setText("1000");
 		m_ojLimitEdit->setFixedWidth(64);
-		QLabel *langLabel = new QLabel("语言因子:",this);
-		m_langFactorEdit = new CustomLineEdit(this);
-		m_langFactorEdit->setText("1.00");
-		m_langFactorEdit->setFixedWidth(56);
-		QLabel *wallLabel = new QLabel("硬限比例:",this);
-		m_wallScaleEdit = new CustomLineEdit(this);
-		m_wallScaleEdit->setText("1.5");
-		m_wallScaleEdit->setFixedWidth(48);
 		QLabel *memLabel = new QLabel("内存(MB):",this);
 		m_memLimitEdit = new CustomLineEdit(this);
 		m_memLimitEdit->setText("256");
 		m_memLimitEdit->setFixedWidth(56);
-		QLabel *refLabel = new QLabel("参考机:",this);
-		m_refIPCEdit = new CustomLineEdit(this);
-		m_refIPCEdit->setText("3.0");
-		m_refIPCEdit->setFixedWidth(48);
-		QLabel *ipcStar = new QLabel("IPC×",this);
-		m_refGHEdit = new CustomLineEdit(this);
-		m_refGHEdit->setText("3.0");
-		m_refGHEdit->setFixedWidth(48);
-		QLabel *ghzUnit = new QLabel("GHz",this);
+		QLabel *refLabel = new QLabel("参考机因子:",this);
+		m_refFactorEdit = new CustomLineEdit(this);
+		m_refFactorEdit->setText("3");
+		m_refFactorEdit->setFixedWidth(48);
 		m_calibBtn = new QPushButton("重新校准",this);
 		connect(m_calibBtn,&QPushButton::clicked,this,[this]() {
 			refreshCalibration();
@@ -246,54 +458,37 @@ class MicaWindow :public QMainWindow {
 
 		// 参数说明 (悬停提示)
 		limitLabel->setToolTip("题目标准时限(ms),以参考机刻度计.\n"
-			"本地等效时限 = 时限 x 语言因子 / 速度因子,\n"
+			"本地等效时限 = 时限 / 速度因子,\n"
 			"超过即判 TLE-CPU.");
-		langLabel->setToolTip("语言速度因子:C/C++=1.00.\n"
-			"解释型/慢语言请调大(如 Java=2,Python=5)以放宽时限.");
-		wallLabel->setToolTip("墙钟硬时限 = 软时限(CPU) x 本比例(默认1.5).\n"
-			"休眠或 IO 卡死的程序虽然不消耗 CPU,也会被墙钟硬时限终止,判 TLE-WALL.");
-		memLabel->setToolTip("内存上限(MB). 评测结束时若峰值专用内存超过该值,判 MLE.\n"
-			"(测量口径,不主动掐断分配)");
-		refLabel->setToolTip("参考 OJ 机器单核算力:IPS = IPC x GHz x 10^9 条指令/秒.\n"
-			"默认 3.0 IPC x 3.0 GHz = 9.0e9 指令/秒.\n"
-			"本机各域指令吞吐与参考机之比即为该域因子.");
-		ipcStar->setToolTip("参考机平均每周期完成的指令数(IPC).");
-		ghzUnit->setToolTip("参考机主频(GHz).");
-		m_calibBtn->setToolTip("用上方参考机参数重新测量本机 4 个域(整型/浮点/内存/分支)\n"
+		memLabel->setToolTip("内存软限(MB). 峰值专用内存超过该值判 MLE.\n"
+			"内存硬杀线 = 软限 × MEM硬线比例(设置中).");
+		refLabel->setToolTip("参考机因子 = IPC × GHz, 参考指令数 = 因子 × 1e8 条/秒.\n"
+			"默认 3 (等价 IPC=1 × GHz=3).");
+		m_calibBtn->setToolTip("用上方参考机因子重新测量本机 4 个域(整型/浮点/内存/分支)\n"
 			"的指令吞吐并重算综合速度因子.");
 		m_ojLimitEdit->setToolTip(limitLabel->toolTip());
-		m_langFactorEdit->setToolTip(langLabel->toolTip());
-		m_wallScaleEdit->setToolTip(wallLabel->toolTip());
 		m_memLimitEdit->setToolTip(memLabel->toolTip());
-		m_refIPCEdit->setToolTip(refLabel->toolTip());
-		m_refGHEdit->setToolTip(refLabel->toolTip());
+		m_refFactorEdit->setToolTip(refLabel->toolTip());
 
 		limitLayout->addWidget(limitLabel);
 		limitLayout->addWidget(m_ojLimitEdit);
-		limitLayout->addWidget(langLabel);
-		limitLayout->addWidget(m_langFactorEdit);
-		limitLayout->addWidget(wallLabel);
-		limitLayout->addWidget(m_wallScaleEdit);
 		limitLayout->addWidget(memLabel);
 		limitLayout->addWidget(m_memLimitEdit);
 		limitLayout->addWidget(refLabel);
-		limitLayout->addWidget(m_refIPCEdit);
-		limitLayout->addWidget(ipcStar);
-		limitLayout->addWidget(m_refGHEdit);
-		limitLayout->addWidget(ghzUnit);
+		limitLayout->addWidget(m_refFactorEdit);
 		limitLayout->addStretch();
 		limitLayout->addWidget(m_calibBtn);
+		limitLayout->addWidget(m_settingsBtn);
 
 		cardLayout->addWidget(m_outputEdit,1);
 		cardLayout->addLayout(pathLayout);
 		cardLayout->addLayout(limitLayout);
 		cardLayout->addLayout(paramLayout);
-		mainLayout->addWidget(cardWidget);
+		mainLayout->addWidget(m_cardWidget);
 
-		applyPaletteTheme(isDarkMode());
 		QString exeDir = QCoreApplication::applicationDirPath();
 		m_core = new EvaluatorCore(exeDir);
-
+		applySettings();
 		refreshCalibration();
 	}
 
@@ -324,35 +519,34 @@ class MicaWindow :public QMainWindow {
 	CustomLineEdit *m_coreEdit;
 	QPushButton *m_runBtn;
 	CustomLineEdit *m_ojLimitEdit;
-	CustomLineEdit *m_langFactorEdit;
-	CustomLineEdit *m_wallScaleEdit;
 	CustomLineEdit *m_memLimitEdit;
-	CustomLineEdit *m_refIPCEdit;
-	CustomLineEdit *m_refGHEdit;
+	CustomLineEdit *m_refFactorEdit;
 	QPushButton *m_calibBtn;
 	QTextEdit *m_outputEdit;
+	QPushButton *m_settingsBtn;
+	QShortcut *m_runShortcut = nullptr;
+	QShortcut *m_browseShortcut = nullptr;
+	QShortcut *m_settingsShortcut = nullptr;
+	CardWidget *m_cardWidget = nullptr;
+	SettingsData m_settings;
 	QString m_currentSource;
-	double m_lastRefIPC = myd::kDefaultRefIPC;
-	double m_lastRefGHz = myd::kDefaultRefGHz;
+	double m_lastRefFactor = myd::kDefaultRefFactor;
 	EvaluatorCore *m_core;
 
 	void refreshCalibration() {
-		double refIPC = m_refIPCEdit->text().toDouble();
-		double refGHz = m_refGHEdit->text().toDouble();
-		if (refIPC <= 0.0) refIPC = myd::kDefaultRefIPC;
-		if (refGHz <= 0.0) refGHz = myd::kDefaultRefGHz;
+		double refFactor = m_refFactorEdit->text().toDouble();
+		if (refFactor <= 0.0) refFactor = myd::kDefaultRefFactor;
 		int rawCore = m_coreEdit->text().toInt();
 		int core = rawCore;
 		if (core > 0) core -= 1;           // 1起→0起
 		if (core < -1) core = -1;
-		m_lastRefIPC = refIPC;
-		m_lastRefGHz = refGHz;
+		m_lastRefFactor = refFactor;
 
 		appendOutput("==================== CPU校准 ====================\n");
 		appendOutput(QString("绑核:%1\n").arg(rawCore < 0 ? "不绑(自适应)" :QString::number(rawCore)));
-		myd::OJTimerResult res = myd::OJTimer::getInstance().doCalibrate(core,refIPC,refGHz);
-		appendOutput(QString("参考机:%1 IPC × %2 GHz = %3 指令/秒\n")
-			.arg(refIPC,0,'f',3).arg(refGHz,0,'f',3).arg(res.refIPS,0,'f',3));
+		myd::OJTimerResult res = myd::OJTimer::getInstance().doCalibrate(core,refFactor);
+		appendOutput(QString("参考机因子:%1 (IPC×GHz), 参考指令数 = %2 指令/秒\n")
+			.arg(refFactor,0,'f',3).arg(res.refIPS,0,'f',3));
 		static const char* const dom[] = { "整型","浮点","内存","分支" };
 		for (int d = 0; d < 4; ++d) {
 			appendOutput(QString("  %1:IPS=%2e9  本地CPU=%3ms  因子=%4\n")
@@ -366,9 +560,49 @@ class MicaWindow :public QMainWindow {
 		appendOutput(QString("校准耗时:%1 ms%2\t")
 			.arg(res.calibWallMs,0,'f',0)
 			.arg(res.stable ? "" :"  (警告:校准结果异常)"));
-		appendOutput(QString("当前实际频率:%1 GHz\t")
-			.arg(res.actualGHz,0,'f',2));
+		appendOutput(QString("实测综合 IPS:%1e9\t")
+			.arg(res.refIPS * res.speedFactor / 1e9, 0, 'f', 4));
 		appendOutput("\n==================== 校准结束 ====================\n\n");
+	}
+
+	void applySettings() {
+		applyPaletteTheme(isDarkMode());
+		applyShortcuts();
+	}
+
+	void applyShortcuts() {
+		if (!m_runShortcut) {
+			m_runShortcut = new QShortcut(this);
+			connect(m_runShortcut,&QShortcut::activated,this,[this](){ if (m_runBtn->isEnabled()) m_runBtn->click(); });
+		}
+		if (!m_browseShortcut) {
+			m_browseShortcut = new QShortcut(this);
+			connect(m_browseShortcut,&QShortcut::activated,this,[this](){ m_browseBtn->click(); });
+		}
+		if (!m_settingsShortcut) {
+			m_settingsShortcut = new QShortcut(this);
+			connect(m_settingsShortcut,&QShortcut::activated,this,[this](){ openSettings(); });
+		}
+		m_runShortcut->setKey(QKeySequence(m_settings.runHotkey));
+		m_browseShortcut->setKey(QKeySequence(m_settings.browseHotkey));
+		m_settingsShortcut->setKey(QKeySequence(m_settings.settingsHotkey));
+	}
+
+	void openSettings() {
+		SettingsDialog *dlg = new SettingsDialog(&m_settings, this);
+		connect(dlg, &QDialog::finished, this, [this](int) { applySettings(); });
+		dlg->setAttribute(Qt::WA_DeleteOnClose);
+		dlg->show();
+	}
+
+	void enableSolidFallback() {
+		QWidget *c = centralWidget();
+		if (!c) return;
+		QColor bg = isDarkMode() ? QColor(32,32,32) : QColor(240,240,240);
+		QPalette pal = c->palette();
+		pal.setColor(QPalette::Window, bg);
+		c->setPalette(pal);
+		c->setAutoFillBackground(true);
 	}
 
 	void appendOutput(const QString &text) {
@@ -378,16 +612,18 @@ class MicaWindow :public QMainWindow {
 	}
 
 	void applyPaletteTheme(bool darkMode) {
-		QColor realTextColor = darkMode ? Qt::white :Qt::black;
-		QColor placeholderColor = darkMode ? QColor(160,160,160) :QColor(100,100,100);
-		QColor baseInputColor = darkMode ? QColor(32,32,32) :Qt::white;
+		QColor realTextColor = darkMode ? Qt::white : Qt::black;
+		QColor placeholderColor = darkMode ? QColor(160,160,160) : QColor(100,100,100);
+		QColor baseInputColor = darkMode ? QColor(32,32,32) : Qt::white;
 
+		// 输入框/结果区: 回滚到透明蒙版前的纯色外观 (无 QSS 边框, 无蓝色底边)
 		QList<QWidget*> widgets = {
 			m_filePathEdit,m_flagsEdit,m_coreEdit,
-			m_ojLimitEdit,m_langFactorEdit,m_wallScaleEdit,m_memLimitEdit,
-			m_refIPCEdit,m_refGHEdit
+			m_ojLimitEdit,m_memLimitEdit,m_refFactorEdit,
+			m_outputEdit
 		};
-		for(QWidget* w :widgets) {
+		for(QWidget* w : widgets) {
+			w->setStyleSheet(QString());
 			QPalette pal = w->palette();
 			pal.setColor(QPalette::Text,realTextColor);
 			pal.setColor(QPalette::PlaceholderText,placeholderColor);
@@ -396,12 +632,6 @@ class MicaWindow :public QMainWindow {
 			pal.setColor(QPalette::HighlightedText,Qt::white);
 			w->setPalette(pal);
 		}
-		QPalette outPal = m_outputEdit->palette();
-		outPal.setColor(QPalette::Base,baseInputColor);
-		outPal.setColor(QPalette::Text,realTextColor);
-		outPal.setColor(QPalette::Highlight,QColor(0,120,212));
-		outPal.setColor(QPalette::HighlightedText,Qt::white);
-		m_outputEdit->setPalette(outPal);
 	}
 
 	bool isDarkMode() {
@@ -415,6 +645,7 @@ class MicaWindow :public QMainWindow {
 		return false;
 	}
 	void enableMica() {
+		if (QWidget *c = centralWidget()) c->setAutoFillBackground(false);
 #ifdef Q_OS_WIN
 		HWND hwnd = reinterpret_cast<HWND>(this->winId());
 		if (!hwnd) return;

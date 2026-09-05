@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <vector>
 int main() {
-	std::vector<long long> v(50000000, 1);
+	std::vector<long long> v(20000000, 1);
 	long long sum = 0;
 	for (long long x : v) sum += x;
 	FILE* out = fopen("source.out", "w");

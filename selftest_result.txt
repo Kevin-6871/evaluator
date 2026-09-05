@@ -1,0 +1,203 @@
+========== 评测器可用性自测 ==========
+工具链: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe
+版本: clang version 17.0.6 (https://github.com/llvm/llvm-project.git 6009708b4367171ccdbf4b5905cb6a803753fe18)
+参考机因子: 3.00 (IPC×GHz), 参考指令数 = 300000000.00 指令/秒
+  整型: IPS=2.5524e9  因子=8.5081
+  浮点: IPS=0.6299e9  因子=2.0998
+  内存: IPS=4.8867e9  因子=16.2891
+  分支: IPS=1.5707e9  因子=5.2358
+综合速度因子: 6.2477
+校准耗时: 2674 ms
+
+用例 AplusB  CPU=15.625ms(E) 墙钟=32.000ms  内存=0.66MB  判读=0 -> AC
+     → 通过
+用例 AplusB_100 (多组测试点 100 个)
+编译命令: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe -std=c++17 -O2 -Wall C:/Users/shaog/Desktop/mycpp/QT/evaluator_.MGuuDM/aplusb.cpp -o C:/Users/shaog/Desktop/mycpp/QT/evaluator_.MGuuDM/aplusb.exe
+编译成功
+========== 评测结果 ==========
+共 100 组测试数据
+组号 | 输入文件      | 答案文件       | CPU(ms) |  OJ(ms) | 墙钟(ms) | 内存(MB) | 结果
+-----+---------------+----------------+---------+---------+----------+----------+-----
+   1 | aplusb-1.in   | aplusb-1.out   |  31.250 | 195.241 |   31.000 |     0.66 | AC  
+   2 | aplusb-2.in   | aplusb-2.out   |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+   3 | aplusb-3.in   | aplusb-3.out   |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+   4 | aplusb-4.in   | aplusb-4.out   |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+   5 | aplusb-5.in   | aplusb-5.out   |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+   6 | aplusb-6.in   | aplusb-6.out   |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+   7 | aplusb-7.in   | aplusb-7.out   |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+   8 | aplusb-8.in   | aplusb-8.out   |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+   9 | aplusb-9.in   | aplusb-9.out   |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  10 | aplusb-10.in  | aplusb-10.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  11 | aplusb-11.in  | aplusb-11.out  |  15.625 |  97.620 |   16.000 |     0.63 | AC  
+  12 | aplusb-12.in  | aplusb-12.out  |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+  13 | aplusb-13.in  | aplusb-13.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  14 | aplusb-14.in  | aplusb-14.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  15 | aplusb-15.in  | aplusb-15.out  |   0.000 |   0.000 |   31.000 |     0.63 | AC  
+  16 | aplusb-16.in  | aplusb-16.out  |   0.000 |   0.000 |   31.000 |     0.62 | AC  
+  17 | aplusb-17.in  | aplusb-17.out  |   0.000 |   0.000 |   32.000 |     0.63 | AC  
+  18 | aplusb-18.in  | aplusb-18.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  19 | aplusb-19.in  | aplusb-19.out  |   0.000 |   0.000 |   16.000 |     0.61 | AC  
+  20 | aplusb-20.in  | aplusb-20.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  21 | aplusb-21.in  | aplusb-21.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  22 | aplusb-22.in  | aplusb-22.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  23 | aplusb-23.in  | aplusb-23.out  |  15.625 |  97.620 |   16.000 |     0.63 | AC  
+  24 | aplusb-24.in  | aplusb-24.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  25 | aplusb-25.in  | aplusb-25.out  |  15.625 |  97.620 |   16.000 |     0.61 | AC  
+  26 | aplusb-26.in  | aplusb-26.out  |  15.625 |  97.620 |   31.000 |     0.63 | AC  
+  27 | aplusb-27.in  | aplusb-27.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  28 | aplusb-28.in  | aplusb-28.out  |  15.625 |  97.620 |   16.000 |     0.63 | AC  
+  29 | aplusb-29.in  | aplusb-29.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  30 | aplusb-30.in  | aplusb-30.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  31 | aplusb-31.in  | aplusb-31.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  32 | aplusb-32.in  | aplusb-32.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  33 | aplusb-33.in  | aplusb-33.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  34 | aplusb-34.in  | aplusb-34.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  35 | aplusb-35.in  | aplusb-35.out  |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+  36 | aplusb-36.in  | aplusb-36.out  |   0.000 |   0.000 |   32.000 |     0.63 | AC  
+  37 | aplusb-37.in  | aplusb-37.out  |  15.625 |  97.620 |   31.000 |     0.62 | AC  
+  38 | aplusb-38.in  | aplusb-38.out  |  15.625 |  97.620 |   31.000 |     0.62 | AC  
+  39 | aplusb-39.in  | aplusb-39.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  40 | aplusb-40.in  | aplusb-40.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  41 | aplusb-41.in  | aplusb-41.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  42 | aplusb-42.in  | aplusb-42.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  43 | aplusb-43.in  | aplusb-43.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  44 | aplusb-44.in  | aplusb-44.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  45 | aplusb-45.in  | aplusb-45.out  |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+  46 | aplusb-46.in  | aplusb-46.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  47 | aplusb-47.in  | aplusb-47.out  |  15.625 |  97.620 |   16.000 |     0.63 | AC  
+  48 | aplusb-48.in  | aplusb-48.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  49 | aplusb-49.in  | aplusb-49.out  |   0.000 |   0.000 |   31.000 |     0.62 | AC  
+  50 | aplusb-50.in  | aplusb-50.out  |   0.000 |   0.000 |   31.000 |     0.62 | AC  
+  51 | aplusb-51.in  | aplusb-51.out  |  31.250 | 195.241 |   16.000 |     0.62 | AC  
+  52 | aplusb-52.in  | aplusb-52.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  53 | aplusb-53.in  | aplusb-53.out  |   0.000 |   0.000 |    0.000 |     0.62 | AC  
+  54 | aplusb-54.in  | aplusb-54.out  |   0.000 |   0.000 |    0.000 |     0.62 | AC  
+  55 | aplusb-55.in  | aplusb-55.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  56 | aplusb-56.in  | aplusb-56.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  57 | aplusb-57.in  | aplusb-57.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  58 | aplusb-58.in  | aplusb-58.out  |  15.625 |  97.620 |    0.000 |     0.62 | AC  
+  59 | aplusb-59.in  | aplusb-59.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  60 | aplusb-60.in  | aplusb-60.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  61 | aplusb-61.in  | aplusb-61.out  |  31.250 | 195.241 |   31.000 |     0.63 | AC  
+  62 | aplusb-62.in  | aplusb-62.out  |  15.625 |  97.620 |   15.000 |     0.62 | AC  
+  63 | aplusb-63.in  | aplusb-63.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  64 | aplusb-64.in  | aplusb-64.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  65 | aplusb-65.in  | aplusb-65.out  |   0.000 |   0.000 |   31.000 |     0.63 | AC  
+  66 | aplusb-66.in  | aplusb-66.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  67 | aplusb-67.in  | aplusb-67.out  |   0.000 |   0.000 |    0.000 |     0.62 | AC  
+  68 | aplusb-68.in  | aplusb-68.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  69 | aplusb-69.in  | aplusb-69.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  70 | aplusb-70.in  | aplusb-70.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  71 | aplusb-71.in  | aplusb-71.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  72 | aplusb-72.in  | aplusb-72.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  73 | aplusb-73.in  | aplusb-73.out  |   0.000 |   0.000 |   16.000 |     0.65 | AC  
+  74 | aplusb-74.in  | aplusb-74.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  75 | aplusb-75.in  | aplusb-75.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  76 | aplusb-76.in  | aplusb-76.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  77 | aplusb_77.in  | aplusb_77.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  78 | aplusb-78.in  | aplusb-78.out  |  15.625 |  97.620 |    0.000 |     0.63 | AC  
+  79 | aplusb-79.in  | aplusb-79.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  80 | aplusb-80.in  | aplusb-80.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  81 | aplusb-81.in  | aplusb-81.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  82 | aplusb-82.in  | aplusb-82.out  |   0.000 |   0.000 |   16.000 |     0.63 | AC  
+  83 | aplusb-83.in  | aplusb-83.out  |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+  84 | aplusb-84.in  | aplusb-84.out  |  15.625 |  97.620 |   32.000 |     0.64 | AC  
+  85 | aplusb-85.in  | aplusb-85.out  |  15.625 |  97.620 |   15.000 |     0.63 | AC  
+  86 | aplusb-86.in  | aplusb-86.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  87 | aplusb-87.in  | aplusb-87.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  88 | aplusb-88.in  | aplusb-88.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  89 | aplusb-89.in  | aplusb-89.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  90 | aplusb-90.in  | aplusb-90.out  |  15.625 |  97.620 |   16.000 |     0.63 | AC  
+  91 | aplusb-91.in  | aplusb-91.out  |   0.000 |   0.000 |    0.000 |     0.63 | AC  
+  92 | aplusb-92.in  | aplusb-92.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+  93 | aplusb-93.in  | aplusb-93.out  |   0.000 |   0.000 |   16.000 |     0.62 | AC  
+  94 | aplusb-94.in  | aplusb-94.out  |   0.000 |   0.000 |   15.000 |     0.61 | AC  
+  95 | aplusb-95.in  | aplusb-95.out  |  15.625 |  97.620 |   32.000 |     0.63 | AC  
+  96 | aplusb-96.in  | aplusb-96.out  |   0.000 |   0.000 |   15.000 |     0.62 | AC  
+  97 | aplusb-97.in  | aplusb-97.out  |   0.000 |   0.000 |   32.000 |     0.63 | AC  
+  98 | aplusb-98.in  | aplusb-98.out  |   0.000 |   0.000 |   15.000 |     0.63 | AC  
+  99 | aplusb-99.in  | aplusb-99.out  |  15.625 |  97.620 |   16.000 |     0.62 | AC  
+ 100 | aplusb-100.in | aplusb-100.out |   0.000 |   0.000 |    0.000 |     0.62 | AC  
+-----+---------------+----------------+---------+---------+----------+----------+-----
+AC:100  WA:0  TLE:0  MLE:0  RE:0  缺答案:0
+总 CPU:546.9 ms    总 OJ 预估:3416.7 ms
+通过率: 100/100 = 100.0%
+综合评价: 全部通过 (AC)
+     → 通过
+用例 AplusB_Multi (多组测试点 5 个)
+编译命令: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe -std=c++17 -O2 -Wall C:/Users/shaog/Desktop/mycpp/QT/evaluator_.GZcElp/aplusb.cpp -o C:/Users/shaog/Desktop/mycpp/QT/evaluator_.GZcElp/aplusb.exe
+编译成功
+========== 评测结果 ==========
+共 5 组测试数据
+组号 | 输入文件    | 答案文件     | CPU(ms) | OJ(ms) | 墙钟(ms) | 内存(MB) | 结果
+-----+-------------+--------------+---------+--------+----------+----------+-----
+   1 | aplusb-1.in | aplusb-1.out |   0.000 |  0.000 |   31.000 |     0.66 | AC  
+   2 | aplusb-2.in | aplusb-2.out |  15.625 | 97.620 |   16.000 |     0.62 | AC  
+   3 | aplusb_3.in | aplusb_3.out |   0.000 |  0.000 |   16.000 |     0.62 | AC  
+   4 | aplusb-4.in | aplusb_4.out |  15.625 | 97.620 |   16.000 |     0.63 | AC  
+   5 | aplusb-5.in | aplusb-5.out |   0.000 |  0.000 |   15.000 |     0.61 | AC  
+-----+-------------+--------------+---------+--------+----------+----------+-----
+AC:5  WA:0  TLE:0  MLE:0  RE:0  缺答案:0
+总 CPU:31.3 ms    总 OJ 预估:195.2 ms
+通过率: 5/5 = 100.0%
+综合评价: 全部通过 (AC)
+     → 通过
+用例 CompileError 编译失败
+编译命令: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe -std=c++17 -O2 -Wall C:/Users/shaog/Desktop/mycpp/QT/evaluator_.dEifbY/source.cpp -o C:/Users/shaog/Desktop/mycpp/QT/evaluator_.dEifbY/source.exe
+C:/Users/shaog/Desktop/mycpp/QT/evaluator_.dEifbY/source.cpp:2:2: error: invalid use of 'this' outside of a non-static member function
+    2 |         this is not valid c++
+      |         ^
+1 error generated.
+
+     → 通过
+用例 Gcd  CPU=15.625ms(E) 墙钟=16.000ms  内存=0.66MB  判读=0 -> AC
+     → 通过
+用例 Gcd_Multi (多组测试点 5 个)
+编译命令: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe -std=c++17 -O2 -Wall C:/Users/shaog/Desktop/mycpp/QT/evaluator_.mEOjYB/gcd.cpp -o C:/Users/shaog/Desktop/mycpp/QT/evaluator_.mEOjYB/gcd.exe
+编译成功
+========== 评测结果 ==========
+共 5 组测试数据
+组号 | 输入文件 | 答案文件  | CPU(ms) | OJ(ms) | 墙钟(ms) | 内存(MB) | 结果
+-----+----------+-----------+---------+--------+----------+----------+-----
+   1 | gcd-1.in | gcd-1.out |  15.625 | 97.620 |   16.000 |     0.67 | AC  
+   2 | gcd-2.in | gcd-2.out |  15.625 | 97.620 |   15.000 |     0.63 | AC  
+   3 | gcd_3.in | gcd_3.out |   0.000 |  0.000 |   16.000 |     0.63 | AC  
+   4 | gcd-4.in | gcd_4.out |   0.000 |  0.000 |   16.000 |     0.62 | AC  
+   5 | gcd-5.in | gcd-5.out |   0.000 |  0.000 |   15.000 |     0.62 | AC  
+-----+----------+-----------+---------+--------+----------+----------+-----
+AC:5  WA:0  TLE:0  MLE:0  RE:0  缺答案:0
+总 CPU:31.3 ms    总 OJ 预估:195.2 ms
+通过率: 5/5 = 100.0%
+综合评价: 全部通过 (AC)
+     → 通过
+用例 MemLimit  CPU=46.875ms(E) 墙钟=78.000ms  内存=153.19MB  判读=4 -> MLE
+     → 通过
+用例 MemTest  CPU=62.500ms(E) 墙钟=140.000ms  内存=153.65MB  判读=0 -> AC
+     → 通过
+用例 SleepTest  CPU=0.000ms(E) 墙钟=250.000ms  内存=0.57MB  判读=2 -> TLE_WALL
+     → 通过
+用例 TimeLimit  CPU=171.875ms(E) 墙钟=250.000ms  内存=0.57MB  判读=1 -> TLE_CPU
+     → 通过
+用例 TimeTest  CPU=78.125ms(E) 墙钟=94.000ms  内存=0.66MB  判读=0 -> AC
+     → 通过
+用例 WrongAns  CPU=0.000ms(E) 墙钟=31.000ms  内存=0.66MB  判读=0 -> WA
+     → 通过
+用例 WrongAns_Multi (多组测试点 4 个)
+编译命令: C:/Qt/Tools/llvm-mingw1706_64/bin/g++.exe -std=c++17 -O2 -Wall C:/Users/shaog/Desktop/mycpp/QT/evaluator_.SqNNSp/wrongans.cpp -o C:/Users/shaog/Desktop/mycpp/QT/evaluator_.SqNNSp/wrongans.exe
+编译成功
+========== 评测结果 ==========
+共 4 组测试数据
+组号 | 输入文件      | 答案文件       | CPU(ms) | OJ(ms) | 墙钟(ms) | 内存(MB) | 结果
+-----+---------------+----------------+---------+--------+----------+----------+-----
+   1 | wrongans-1.in | wrongans-1.out |  15.625 | 97.620 |   31.000 |     0.66 | AC  
+   2 | wrongans-2.in | wrongans-2.out |  15.625 | 97.620 |   16.000 |     0.63 | WA  
+   3 | wrongans-3.in | wrongans-3.out |   0.000 |  0.000 |   15.000 |     0.63 | AC  
+   4 | wrongans_4.in | wrongans_4.out |   0.000 |  0.000 |    0.000 |     0.62 | AC  
+-----+---------------+----------------+---------+--------+----------+----------+-----
+AC:3  WA:1  TLE:0  MLE:0  RE:0  缺答案:0
+总 CPU:31.3 ms    总 OJ 预估:195.2 ms
+通过率: 3/4 = 75.0%
+综合评价: 部分通过 (AC 3/4) — 答案错误(WA)1组
+     → 通过
+
+========== 自测结果: 13/13 通过 ==========

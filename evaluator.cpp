@@ -1,4 +1,4 @@
-﻿#include "evaluator.hpp"
+#include "evaluator.hpp"
 
 #include <QDir>
 #include <QFile>
@@ -33,6 +33,99 @@ default:                     return "OK";
 }
 }
 }
+
+// ==================== 表格自适应宽度工具 ====================
+namespace {
+
+// 计算字符串在等宽字体下的显示列宽 (CJK/全角字符按 2 列计)
+int displayWidth(const QString &s) {
+int w = 0;
+for (const QChar &c : s) {
+const ushort u = c.unicode();
+if ((u >= 0x1100 && u <= 0x115F) ||
+    (u >= 0x2E80 && u <= 0x303E) ||
+    (u >= 0x3041 && u <= 0x33FF) ||
+    (u >= 0x3400 && u <= 0x4DBF) ||
+    (u >= 0x4E00 && u <= 0x9FFF) ||
+    (u >= 0xA000 && u <= 0xA4CF) ||
+    (u >= 0xAC00 && u <= 0xD7A3) ||
+    (u >= 0xF900 && u <= 0xFAFF) ||
+    (u >= 0xFE30 && u <= 0xFE4F) ||
+    (u >= 0xFF00 && u <= 0xFF60) ||
+    (u >= 0xFFE0 && u <= 0xFFE6))
+    w += 2;
+else
+    w += 1;
+}
+return w;
+}
+
+// 把字符串填充到指定显示宽度 (rightAlign=true 右对齐, 否则左对齐)
+QString padTo(const QString &s, int width, bool rightAlign) {
+int w = displayWidth(s);
+if (w >= width) return s;
+const QString pad(width - w, QLatin1Char(' '));
+return rightAlign ? pad + s : s + pad;
+}
+
+// 生成自适应宽度的评测结果表格
+QString buildResultTable(const QVector<TestCaseResult> &results) {
+const int cols = 8;
+QStringList header;
+header << "组号" << "输入文件" << "答案文件" << "CPU(ms)" << "OJ(ms)" << "墙钟(ms)" << "内存(MB)" << "结果";
+const bool rightAlign[cols] = { true, false, false, true, true, true, true, false };
+
+QVector<QStringList> grid;
+grid.append(header);
+for (const TestCaseResult &r : results) {
+QStringList row;
+row << QString::number(r.index)
+    << r.inputFile
+    << r.ansFile
+    << QString::number(r.cpuTimeMs, 'f', 3)
+    << QString::number(r.ojTimeMs, 'f', 3)
+    << QString::number(r.wallTimeMs, 'f', 3)
+    << QString::number(r.peakMemBytes / (1024.0 * 1024.0), 'f', 2)
+    << JudgeVerdict::toString(r.verdict);
+grid.append(row);
+}
+
+QVector<int> widths(cols, 2);
+for (int c = 0; c < cols; ++c) {
+int w = 2;
+for (const QStringList &row : grid)
+    w = qMax(w, displayWidth(row[c]));
+widths[c] = w;
+}
+
+QString out;
+for (int i = 0; i < grid.size(); ++i) {
+const QStringList &row = grid[i];
+QString line;
+for (int c = 0; c < cols; ++c) {
+    if (c > 0) line += " | ";
+    line += padTo(row[c], widths[c], rightAlign[c]);
+}
+out += line + "\n";
+if (i == 0) {
+    QString sep;
+    for (int c = 0; c < cols; ++c) {
+        if (c > 0) sep += "-+-";
+        sep += QString(widths[c], QLatin1Char('-'));
+    }
+    out += sep + "\n";
+}
+}
+QString sep;
+for (int c = 0; c < cols; ++c) {
+if (c > 0) sep += "-+-";
+sep += QString(widths[c], QLatin1Char('-'));
+}
+out += sep + "\n";
+return out;
+}
+
+} // anonymous namespace
 
 EvaluatorCore::EvaluatorCore(const QString &exeDir)
 : m_exeDir(exeDir), m_tempDir("evaluator_"),
@@ -122,12 +215,12 @@ output += stdOut + stdErr;
 return (proc.exitCode() == 0);
 }
 // ==================== wrapper 编译 (带缓存) ====================
-bool EvaluatorCore::ensureWrapper(int core, double cpuLimitMs, double wallLimitMs,
+bool EvaluatorCore::ensureWrapper(int core, double cpuLimitMs, double wallLimitMs, size_t memLimitBytes,
   const QString &exeName, QString &output) {
 if (m_wrapperReady && m_wrapperCore == core &&
 m_wrapperCpuLimitMs == cpuLimitMs && m_wrapperWallLimitMs == wallLimitMs &&
-m_wrapperExeName == exeName) {
-return true;   // 参数未变, 复用已编译的 wrapper.exe
+m_wrapperMemLimitBytes == memLimitBytes && m_wrapperExeName == exeName) {
+return true;
 }
 
 QString wrapperCode = QString(R"(
@@ -137,74 +230,56 @@ int main() {
 int core = %1;
 double cpuLimitMs = %2;
 double wallLimitMs = %3;
-char cmd[] = "%4";
+unsigned long long memLimitBytes = %4;
+char cmd[] = "%5";
 
 STARTUPINFO si = { sizeof(si) };
 PROCESS_INFORMATION pi = {};
 HANDLE job = CreateJobObjectW(NULL, NULL);
 JOBOBJECT_EXTENDED_LIMIT_INFORMATION jeli = {};
 jeli.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-if (job)
-SetInformationJobObject(job, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
 
-DWORD flags = (core >= 0) ? CREATE_SUSPENDED : 0;
+// CPU 软限 → 进程级用户态时间硬限 (零开销, OS 到点即杀)
+if (cpuLimitMs > 0.0) {
+    jeli.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_PROCESS_TIME;
+    jeli.BasicLimitInformation.PerProcessUserTimeLimit.QuadPart = (long long)(cpuLimitMs * 10000.0);
+}
+// 内存硬杀线 (零开销, OS 级提交内存上限)
+if (memLimitBytes > 0) {
+    jeli.BasicLimitInformation.LimitFlags |= JOB_OBJECT_LIMIT_JOB_MEMORY;
+    jeli.JobMemoryLimit = (SIZE_T)memLimitBytes;
+}
+BOOL setOk = FALSE;
+if (job)
+    setOk = SetInformationJobObject(job, JobObjectExtendedLimitInformation, &jeli, sizeof(jeli));
+
+DWORD flags = CREATE_SUSPENDED;
 if (!CreateProcess(NULL, cmd, NULL, NULL, FALSE, flags, NULL, NULL, &si, &pi)) {
-FILE* f = fopen("time_result.txt", "w");
-if (f) { fprintf(f, "0.000 0.000 0 3"); fclose(f); }
-if (job) CloseHandle(job);
-return 1;
+    FILE* f = fopen("time_result.txt", "w");
+    if (f) { fprintf(f, "0.000 0.000 0 3"); fclose(f); }
+    if (job) CloseHandle(job);
+    return 1;
 }
-if (job) AssignProcessToJobObject(job, pi.hProcess);
+
+BOOL asgOk = FALSE;
+if (job) asgOk = AssignProcessToJobObject(job, pi.hProcess);
 if (core >= 0) {
-SetThreadAffinityMask(pi.hThread, 1ULL << core);
-ResumeThread(pi.hThread);
+    SetThreadAffinityMask(pi.hThread, 1ULL << core);
 }
+ResumeThread(pi.hThread);
 CloseHandle(pi.hThread);
 
-// ---- 双时限执行 ----
-// 软时限(TLE_CPU): 看门狗轮询 GetProcessTimes 用户态时间(与计分同源时钟), 超限终结
-// 硬时限(TLE_WALL): 墙钟爬满 wallLimitMs(软限×比例)终结, 防休眠/IO 卡死
+// ---- 零开销执行 ----
+// TLE_CPU: JOB_OBJECT_LIMIT_PROCESS_TIME 由 OS 到点终止进程 (无轮询)
+// TLE_WALL: 单次阻塞等待墙钟硬限 (防休眠/IO 卡死)
+// 内存:   JOB_OBJECT_LIMIT_JOB_MEMORY 由 OS 限制提交内存 (无轮询)
 DWORD runStart = GetTickCount();
 int verdict = 0;
-double detectedUserMs = 0.0;
-if (cpuLimitMs <= 0.0) {
 DWORD hardMs = (wallLimitMs > 0.0) ? (DWORD)wallLimitMs : INFINITE;
 if (WaitForSingleObject(pi.hProcess, hardMs) == WAIT_TIMEOUT) {
-if (job) TerminateJobObject(job, 1);
-WaitForSingleObject(pi.hProcess, INFINITE);
-verdict = 2;   // TLE_WALL
-}
-} else {
-bool done = false;
-while (!done) {
-DWORD elapsed = GetTickCount() - runStart;
-if (wallLimitMs > 0.0 && (double)elapsed >= wallLimitMs) {
-if (job) TerminateJobObject(job, 1);
-WaitForSingleObject(pi.hProcess, INFINITE);
-verdict = 2;   // TLE_WALL
-done = true;
-break;
-}
-DWORD remain = (wallLimitMs > 0.0 && wallLimitMs > (double)elapsed)
-? (DWORD)(wallLimitMs - elapsed) : 25;
-DWORD slice = (remain > 25) ? 25 : (remain < 5 ? 5 : remain);
-if (WaitForSingleObject(pi.hProcess, slice) == WAIT_OBJECT_0) {
-done = true;   // 正常退出
-break;
-}
-FILETIME tc, te, tk, tu;
-GetProcessTimes(pi.hProcess, &tc, &te, &tk, &tu);
-ULARGE_INTEGER ul;
-ul.LowPart = tu.dwLowDateTime;
-ul.HighPart = tu.dwHighDateTime;
-detectedUserMs = ul.QuadPart / 10000.0;
-if (detectedUserMs >= cpuLimitMs) {
-if (job) TerminateJobObject(job, 1);
-WaitForSingleObject(pi.hProcess, INFINITE);
-verdict = 1;   // TLE_CPU
-done = true;
-}
-}
+    if (job) TerminateJobObject(job, 1);
+    WaitForSingleObject(pi.hProcess, INFINITE);
+    verdict = 2;
 }
 
 FILETIME c, e, k, u;
@@ -213,29 +288,32 @@ ULARGE_INTEGER tr;
 tr.LowPart = u.dwLowDateTime;
 tr.HighPart = u.dwHighDateTime;
 double t = tr.QuadPart / 10000.0;
-if (t <= 0.0 && detectedUserMs > 0.0) t = detectedUserMs;   // 兜底: 终结时刻的回读可能未刷新
+if (cpuLimitMs > 0.0 && t >= cpuLimitMs) {
+    verdict = 1;   // TLE_CPU 优先: 进程用户态已超 CPU 软限 (即使墙钟先到)
+}
 double wallMs = (double)(DWORD)(GetTickCount() - runStart);
 CloseHandle(pi.hProcess);
 
 unsigned long long m = 0;
 if (job) {
-JOBOBJECT_EXTENDED_LIMIT_INFORMATION jinfo = {};
-if (QueryInformationJobObject(job, JobObjectExtendedLimitInformation,
-&jinfo, sizeof(jinfo), NULL))
-m = (unsigned long long)jinfo.PeakJobMemoryUsed;
-CloseHandle(job);
+    JOBOBJECT_EXTENDED_LIMIT_INFORMATION jinfo = {};
+    if (QueryInformationJobObject(job, JobObjectExtendedLimitInformation,
+        &jinfo, sizeof(jinfo), NULL))
+        m = (unsigned long long)jinfo.PeakJobMemoryUsed;
+    CloseHandle(job);
 }
 
 FILE* f = fopen("time_result.txt", "w");
 if (f) {
-fprintf(f, "%.3f %.3f %llu %d", t, wallMs, m, verdict);
-fclose(f);
+    fprintf(f, "%.3f %.3f %llu %d", t, wallMs, m, verdict);
+    fclose(f);
 }
 return 0;
 }
 )").arg(core)
 .arg(QString::number(cpuLimitMs, 'f', 3))
 .arg(QString::number(wallLimitMs, 'f', 3))
+.arg((qulonglong)memLimitBytes)
 .arg(exeName);
 
 QFile wrapperFile(m_testDir + "wrapper.cpp");
@@ -257,11 +335,12 @@ m_wrapperReady = true;
 m_wrapperCore = core;
 m_wrapperCpuLimitMs = cpuLimitMs;
 m_wrapperWallLimitMs = wallLimitMs;
+m_wrapperMemLimitBytes = memLimitBytes;
 m_wrapperExeName = exeName;
 return true;
 }
 // ==================== 运行 <exeBase>.exe 并测量 ====================
-bool EvaluatorCore::runPrepared(const QString &exeBase, size_t memLimitMB,
+bool EvaluatorCore::runPrepared(const QString &exeBase, size_t memSoftMB,
 double &cpuTimeMs, double &wallTimeMs, size_t &peakMem,
 QString &output, int &verdict) {
 verdict = JudgeVerdict::RUN_ERR;
@@ -317,7 +396,7 @@ verdict = (v >= JudgeVerdict::OK && v <= JudgeVerdict::RUN_ERR) ? v : JudgeVerdi
 resultFile.close();
 
 // 内存限制 (测量口径): 峰值专用内存超过限制即 MLE
-const size_t memLimitBytes = (memLimitMB > 0) ? (size_t)memLimitMB * 1024ull * 1024ull : 0;
+const size_t memLimitBytes = (memSoftMB > 0) ? (size_t)memSoftMB * 1024ull * 1024ull : 0;
 if (memLimitBytes > 0 && peakMem > memLimitBytes && verdict == JudgeVerdict::OK)
 verdict = JudgeVerdict::MLE;
 
@@ -333,8 +412,7 @@ output += "运行错误 (RE)\n";
 return true;
 }
 // ==================== 旧单样例接口 (保持兼容, 供 selftest 使用) ====================
-bool EvaluatorCore::run(int core, double ojLimitMs, double languageFactor, double wallScale,
-size_t memLimitMB,
+bool EvaluatorCore::run(int core, const JudgeLimits &limits,
 double &cpuTimeMs, double &wallTimeMs, size_t &peakMem,
 QString &output, int &verdict) {
 verdict = JudgeVerdict::RUN_ERR;
@@ -347,17 +425,19 @@ const myd::OJTimer &tj = myd::OJTimer::getInstance();
 double f = tj.getSpeedFactor();
 if (f > 0.0) speedFactor = f;
 }
-const double localCpuLimitMs = (ojLimitMs <= 0.0)
+const double localCpuLimitMs = (limits.ojLimitMs <= 0.0)
 ? 0.0
-: (ojLimitMs * languageFactor / speedFactor);
+: (limits.ojLimitMs / speedFactor);
 const double wallLimitMs = (localCpuLimitMs <= 0.0)
 ? 0.0
-: (localCpuLimitMs * (wallScale > 0.0 ? wallScale : 1.0));
+: (localCpuLimitMs * (limits.tleHardScale > 0.0 ? limits.tleHardScale : 1.0));
+const size_t memHardBytes = (limits.memLimitMB > 0)
+? (size_t)((double)limits.memLimitMB * 1024.0 * 1024.0 * (limits.memHardScale > 0.0 ? limits.memHardScale : 1.0)) : 0;
 
-if (!ensureWrapper(core, localCpuLimitMs, wallLimitMs, QStringLiteral("source.exe"), output))
+if (!ensureWrapper(core, localCpuLimitMs, wallLimitMs, memHardBytes, QStringLiteral("source.exe"), output))
 return false;
 
-if (!runPrepared(QStringLiteral("source"), memLimitMB,
+if (!runPrepared(QStringLiteral("source"), limits.memLimitMB,
  cpuTimeMs, wallTimeMs, peakMem, output, verdict))
 return false;
 
@@ -423,8 +503,7 @@ return inputFiles.size();
 }
 // ==================== 多组完整评测 ====================
 bool EvaluatorCore::evaluateGroups(const QString &srcPath, const QString &flags, int core,
-   double ojLimitMs, double languageFactor, double wallScale,
-   size_t memLimitMB,
+   const JudgeLimits &limits,
    QString &compileOut, QString &tableText,
    QVector<TestCaseResult> &results) {
 results.clear();
@@ -468,15 +547,17 @@ const myd::OJTimer &tj = myd::OJTimer::getInstance();
 double f = tj.getSpeedFactor();
 if (f > 0.0) speedFactor = f;
 }
-const double localCpuLimitMs = (ojLimitMs <= 0.0)
+const double localCpuLimitMs = (limits.ojLimitMs <= 0.0)
 ? 0.0
-: (ojLimitMs * languageFactor / speedFactor);
+: (limits.ojLimitMs / speedFactor);
 const double wallLimitMs = (localCpuLimitMs <= 0.0)
 ? 0.0
-: (localCpuLimitMs * (wallScale > 0.0 ? wallScale : 1.0));
+: (localCpuLimitMs * (limits.tleHardScale > 0.0 ? limits.tleHardScale : 1.0));
+const size_t memHardBytes = (limits.memLimitMB > 0)
+? (size_t)((double)limits.memLimitMB * 1024.0 * 1024.0 * (limits.memHardScale > 0.0 ? limits.memHardScale : 1.0)) : 0;
 
 QString wrapperOut;
-if (!ensureWrapper(core, localCpuLimitMs, wallLimitMs, base + ".exe", wrapperOut)) {
+if (!ensureWrapper(core, localCpuLimitMs, wallLimitMs, memHardBytes, base + ".exe", wrapperOut)) {
 compileOut += wrapperOut;
 tableText = "包装程序编译失败, 无法评测\n";
 return false;
@@ -501,7 +582,7 @@ QFile::copy(ans[i], m_testDir + base + ".ans");
 // 运行被评测程序 (读 aaa.in, 写 aaa.out)
 QString runOut;
 int v = JudgeVerdict::RUN_ERR;
-bool ok = runPrepared(base, memLimitMB, r.cpuTimeMs, r.wallTimeMs, r.peakMemBytes, runOut, v);
+bool ok = runPrepared(base, limits.memLimitMB, r.cpuTimeMs, r.wallTimeMs, r.peakMemBytes, runOut, v);
 
 r.ojTimeMs = myd::OJTimer::getInstance().toOJTime(r.cpuTimeMs);
 
@@ -547,25 +628,10 @@ tableText += QString("  测试点 %1: %2").arg(r.index).arg(runOut.trimmed()) + 
 results.append(r);
 }
 
-// 5. 表格输出
+// 5. 表格输出 (自适应列宽)
 tableText += "========== 评测结果 ==========\n";
 tableText += QString("共 %1 组测试数据\n").arg(n);
-tableText += "组号   | 输入文件        | 答案文件        |  CPU(ms) |  OJ(ms)  | 墙钟(ms) |  内存(MB) | 结果\n";
-tableText += "-------+-----------------+-----------------+----------+----------+----------+-----------+--------\n";
-for (const TestCaseResult &r : results) {
-const QString memStr = QString::number(r.peakMemBytes / (1024.0 * 1024.0), 'f', 2);
-tableText += QString(" %1    | %2 | %3 | %4 | %5 | %6 | %7 | %8\n")
-.arg(r.index, 4)
-.arg(r.inputFile.leftJustified(15, ' '))
-.arg(r.ansFile.leftJustified(15, ' '))
-.arg(QString::number(r.cpuTimeMs, 'f', 3).rightJustified(8, ' '))
-.arg(QString::number(r.ojTimeMs, 'f', 3).rightJustified(8, ' '))
-.arg(QString::number(r.wallTimeMs, 'f', 3).rightJustified(8, ' '))
-.arg(memStr.rightJustified(9, ' '))
-.arg(JudgeVerdict::toString(r.verdict).leftJustified(7, ' '));
-}
-tableText += "-------+-----------------+-----------------+----------+----------+----------+-----------+--------\n";
-
+tableText += buildResultTable(results);
 // 6. 汇总 + 综合评价
 double totalCpu = 0.0, totalOj = 0.0;
 for (const TestCaseResult &r : results) {

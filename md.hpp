@@ -63,7 +63,7 @@ namespace myd {
 	//      这正是"指令数 × 固定参考 IPC"的落地形态。
 	//   2. 本地测量: 绑核 + GetThreadTimes(单线程用户态 CPU 时间), 避免 QPC 墙钟与判题
 	//      GetProcessTimes 之间的单位错配。
-	//   3. 参考刻度: refIPS = refIPC(单核吞吐指令/周期) × refGHz(主频) × 1e9, GUI 可配置。
+	//   3. 参考刻度: refIPS = refFactor × 1e8, GUI 可配置 (refFactor = IPC × GHz)。
 	//   4. 因子: factor_d = ips_d / refIPS; 综合 = 4 域几何平均。toOJTime(t) = t × 综合因子。
 
 	enum class OJDomain : int { IntALU = 0, FloatMath = 1, MemOps = 2, Branch = 3 };
@@ -76,13 +76,11 @@ namespace myd {
 		double domainIPS[4]    = {0.0,0.0,0.0,0.0}; // 各域实测每秒指令
 		double domainCPUMs[4]  = {0.0,0.0,0.0,0.0}; // 各域采用的(最优)本地用户态CPU时间
 		double calibWallMs  = 0.0;             // 校准总耗时(墙钟)
-		double actualGHz    = 0.0;             // 校准期间实测 CPU 实际频率
 		bool   stable       = false;           // 是否得到有效因子
 	};
 
-	// 默认参考机: 3.0 IPC × 3.0 GHz = 9e9 指令/秒 (GUI 可改)
-	inline constexpr double kDefaultRefIPC  = 3.0;
-	inline constexpr double kDefaultRefGHz  = 3.0;
+	// 默认参考机因子: IPC × GHz = 3.0 (等价 IPC=1 × GHz=3), 参考指令数 = factor × 1e8
+	inline constexpr double kDefaultRefFactor = 3.0;
 
 	// 离线锚定: 每循环轮数的动态机器指令数
 	// (发布版二进制经 llvm-objdump 静态反汇编测得, 与 CPU 无关, 勿随意修改)
@@ -105,8 +103,8 @@ namespace myd {
 		static OJTimer& getInstance();
 
 		// 校准: 返回完整结果并缓存综合因子
-		// bindCore<0 表示不绑核; refIPC/refGHz 定义参考机
-		OJTimerResult doCalibrate(int bindCore, double refIPC, double refGHz);
+		// bindCore<0 表示不绑核; refFactor = IPC × GHz 定义参考机 (参考指令数 = refFactor × 1e8)
+		OJTimerResult doCalibrate(int bindCore, double refFactor);
 
 		double getSpeedFactor() const { return speedFactor; }
 		double getRefIPS() const { return refIPS; }
@@ -119,7 +117,7 @@ namespace myd {
 		static uint64_t runBranch(uint64_t iters);
 
 	private:
-		OJTimer() : speedFactor(1.0), refIPS(kDefaultRefIPC * kDefaultRefGHz * 1e9) {}
+		OJTimer() : speedFactor(1.0), refIPS(kDefaultRefFactor * 1e8) {}
 		double speedFactor;
 		double refIPS;
 

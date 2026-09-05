@@ -172,14 +172,13 @@ double OJTimer::runDomainCPUMs(int d, uint64_t iters) {
     return t1 - t0;
 }
 
-OJTimerResult OJTimer::doCalibrate(int bindCore, double refIPC, double refGHz) {
+OJTimerResult OJTimer::doCalibrate(int bindCore, double refFactor) {
     OJTimerResult res;
     // 先给 res.stable 赋值并由后续失败分支清零
     res.stable = true;
 
-    if (refIPC <= 0.0) refIPC = kDefaultRefIPC;
-    if (refGHz <= 0.0) refGHz = kDefaultRefGHz;
-    res.refIPS = refIPC * refGHz * 1e9;   // 必须先于域循环, 因子计算依赖它
+    if (refFactor <= 0.0) refFactor = kDefaultRefFactor;
+    res.refIPS = refFactor * 1e8;   // 参考指令数 = 输入值(IPC×GHz) × 1e8 (必须先于域循环, 因子计算依赖它)
     refIPS = res.refIPS;
 
     const double instPerIter[4] = {
@@ -252,18 +251,6 @@ double g = 1.0;
 
     QueryPerformanceCounter(&wt2);
     res.calibWallMs = (wt2.QuadPart - wt1.QuadPart) * 1000.0 / (double)wf.QuadPart;
-
-    // 测量当前实际频率 (100ms 采样)
-    {
-        LARGE_INTEGER t1, t2;
-        QueryPerformanceCounter(&t1);
-        uint64_t tsc1 = __rdtsc();
-        Sleep(120);
-        uint64_t tsc2 = __rdtsc();
-        QueryPerformanceCounter(&t2);
-        double sec = (double)(t2.QuadPart - t1.QuadPart) / (double)wf.QuadPart;
-        if (sec > 0.0) res.actualGHz = (tsc2 - tsc1) / sec / 1.0e9;
-    }
 
     return res;
 }

@@ -40,6 +40,14 @@ struct TestCaseResult {
 	int    verdict       = JudgeVerdict::OK; // JudgeVerdict
 };
 
+// ==================== 评测限制参数 ====================
+struct JudgeLimits {
+	double ojLimitMs    = 1000.0;  // OJ 标准时限 (参考机刻度, ms)
+	double tleHardScale = 1.5;     // TLE 硬线比例: 墙钟硬时限 = CPU 软限 × 此值
+	size_t memLimitMB   = 256;     // 内存软限 (MB), 峰值超过判 MLE
+	double memHardScale = 1.5;     // MEM 硬线比例: 内存硬杀线 = 软限 × 此值
+};
+
 // ==================== 编译+运行+判题核心声明 ====================
 class EvaluatorCore {
   public:
@@ -57,15 +65,13 @@ class EvaluatorCore {
 				 const QString &outputBaseName = QString());
 
 	// 用 wrapper 运行 source.exe，测量用户态 CPU 时间与峰值内存，并比对答案 (AC/WA)。
-	// 双时限:
-	//   ojLimitMs       = OJ 标准时限 (参考机刻度, ms)
-	//   languageFactor  = 语言因子 (C++ = 1.0)
-	//   wallScale       = 硬时限 / 软时限 (默认 1.5)
-	//   memLimitMB      = 内存限制 (MB); >0 时峰值专用内存超过即 MLE
-	// 内部把 OJ 时限换算成本地 CPU 限额: localLimit = ojLimit × languageFactor / speedFactor
+	// limits.ojLimitMs     = OJ 标准时限 (参考机刻度, ms)
+	// limits.tleHardScale  = TLE 硬线比例 (墙钟硬时限 = CPU 软限 × 比例)
+	// limits.memLimitMB    = 内存软限 (MB)
+	// limits.memHardScale  = MEM 硬线比例 (内存硬杀线 = 软限 × 比例)
+	// 内部把 OJ 时限换算成本地 CPU 限额: localLimit = ojLimit / speedFactor
 	// 输出: cpuTimeMs=用户态CPU时间(ms), wallTimeMs=墙钟时长(ms), peakMem=峰值专用内存
-	bool run(int core, double ojLimitMs, double languageFactor, double wallScale,
-			 size_t memLimitMB,
+	bool run(int core, const JudgeLimits &limits,
 			 double &cpuTimeMs, double &wallTimeMs, size_t &peakMem, QString &output, int &verdict);
 
 	// ---------- 多组评测 (新) ----------
@@ -82,18 +88,19 @@ class EvaluatorCore {
 	//   4. 汇总成表格输出到 tableText, 每组成绩写入 results
 	// compileOut 返回编译过程/结果文本; 返回 false 表示编译失败 (CE)。
 	bool evaluateGroups(const QString &srcPath, const QString &flags, int core,
-						double ojLimitMs, double languageFactor, double wallScale,
-						size_t memLimitMB,
+						const JudgeLimits &limits,
 						QString &compileOut, QString &tableText,
 						QVector<TestCaseResult> &results);
 
   private:
 	// 编译 wrapper (带缓存: 同一实例参数不变时只编译一次)
-	bool ensureWrapper(int core, double cpuLimitMs, double wallLimitMs,
+	// memLimitBytes = 内存硬杀线 (bytes), 传入 JOB_OBJECT_LIMIT_JOB_MEMORY
+	bool ensureWrapper(int core, double cpuLimitMs, double wallLimitMs, size_t memLimitBytes,
 					   const QString &exeName, QString &output);
 
 	// 运行 <exeBase>.exe (须已 ensureWrapper), 测量 CPU/墙钟/峰值内存, 返回 wrapper 层判词 (0..4)
-	bool runPrepared(const QString &exeBase, size_t memLimitMB,
+	// memSoftMB = 内存软限 (MB), 用于结束后判定 MLE
+	bool runPrepared(const QString &exeBase, size_t memSoftMB,
 					 double &cpuTimeMs, double &wallTimeMs, size_t &peakMem,
 					 QString &output, int &verdict);
 
@@ -109,6 +116,7 @@ class EvaluatorCore {
 	int    m_wrapperCore;
 	double m_wrapperCpuLimitMs;
 	double m_wrapperWallLimitMs;
+	size_t m_wrapperMemLimitBytes;
 	QString m_wrapperExeName;
 };
 
