@@ -5,3 +5,5 @@ build/
 .opencode/
 agent-use/
 mboj_config.json
+rele/
+pack/
