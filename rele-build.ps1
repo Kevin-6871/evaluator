@@ -61,7 +61,7 @@ function Invoke-Silent {
 Write-Info "PowerShell 版本: $($PSVersionTable.PSVersion.ToString())"
 
 # ==========================================================
-# 第0步：定位 Qt 工具链目录
+# 第0->1步：定位 Qt 工具链目录
 # ==========================================================
 
 Set-Location -Path "C:\Users\shaog\Desktop\mycpp\QT"
@@ -154,7 +154,7 @@ $toolchainName = (Split-Path $ToolchainDir -Leaf)
 $isMingwToolchain = $toolchainName -match "mingw|llvm"
 
 # ==========================================================
-# 第0.5步：初始化 MSVC 构建环境（非 MinGW）
+# 第0->2步：初始化 MSVC 构建环境（非 MinGW）
 # ==========================================================
 if (-not $isMingwToolchain) {
     Write-Info "正在初始化 MSVC 构建环境..."
