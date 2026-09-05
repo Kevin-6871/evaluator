@@ -52,6 +52,7 @@ struct JudgeLimits {
 class EvaluatorCore {
   public:
 	explicit EvaluatorCore(const QString &exeDir);
+	~EvaluatorCore();
 
 	// 解析可用的 C++ 编译器（优先用户工具链，回退 PATH 中 g++）
 	QString resolveCompiler();
@@ -109,7 +110,6 @@ class EvaluatorCore {
 
 	QString m_exeDir;
 	QString m_testDir;
-	QTemporaryDir m_tempDir;
 
 	// wrapper 缓存
 	bool   m_wrapperReady;

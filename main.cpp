@@ -183,18 +183,14 @@ class SettingsDialog : public QDialog {
 explicit SettingsDialog(SettingsData *data, QWidget *parent = nullptr)
 : QDialog(parent), m_data(data) {
 setWindowTitle("设置");
-setAttribute(Qt::WA_TranslucentBackground);
 setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
 setWindowModality(Qt::NonModal);
 
 QVBoxLayout *root = new QVBoxLayout(this);
-root->setContentsMargins(8,8,8,8);
-CardWidget *card = new CardWidget(this);
-QVBoxLayout *cl = new QVBoxLayout(card);
-cl->setContentsMargins(12,12,12,12);
-cl->setSpacing(8);
+root->setContentsMargins(12,12,12,12);
+root->setSpacing(8);
 
-QGroupBox *g1 = new QGroupBox("评测参数", card);
+QGroupBox *g1 = new QGroupBox("评测参数", this);
 QFormLayout *f1 = new QFormLayout(g1);
 m_refFactorSpin = new QDoubleSpinBox(g1);
 m_refFactorSpin->setRange(0.1, 100.0); m_refFactorSpin->setDecimals(2);
@@ -208,9 +204,9 @@ m_memHardSpin = new QDoubleSpinBox(g1);
 m_memHardSpin->setRange(0.1, 10.0); m_memHardSpin->setDecimals(2);
 m_memHardSpin->setValue(m_data->memHardScale);
 f1->addRow("MEM 硬线比例:", m_memHardSpin);
-cl->addWidget(g1);
+root->addWidget(g1);
 
-QGroupBox *g2 = new QGroupBox("热键", card);
+QGroupBox *g2 = new QGroupBox("热键", this);
 QFormLayout *f2 = new QFormLayout(g2);
 m_runHotEdit = new QKeySequenceEdit(g2);
 m_runHotEdit->setKeySequence(QKeySequence(m_data->runHotkey));
@@ -221,19 +217,15 @@ f2->addRow("浏览文件:", m_browseHotEdit);
 m_settingsHotEdit = new QKeySequenceEdit(g2);
 m_settingsHotEdit->setKeySequence(QKeySequence(m_data->settingsHotkey));
 f2->addRow("打开设置:", m_settingsHotEdit);
-cl->addWidget(g2);
-
-g1->setStyleSheet("background: transparent;");
-g2->setStyleSheet("background: transparent;");
+root->addWidget(g2);
 
 QHBoxLayout *btns = new QHBoxLayout();
-QPushButton *defBtn = new QPushButton("恢复默认", card);
-QPushButton *closeBtn = new QPushButton("关闭", card);
+QPushButton *defBtn = new QPushButton("恢复默认", this);
+QPushButton *closeBtn = new QPushButton("关闭", this);
 btns->addWidget(defBtn); btns->addStretch(); btns->addWidget(closeBtn);
-cl->addLayout(btns);
-root->addWidget(card);
+root->addLayout(btns);
 
-setFixedSize(560, 420);
+setFixedSize(560, 380);
 
 connect(defBtn, &QPushButton::clicked, this, [this]() {
 SettingsData d;
@@ -263,23 +255,6 @@ saveSettings(*m_data);
 }
 
   protected:
-void showEvent(QShowEvent *e) override {
-QDialog::showEvent(e);
-#ifdef Q_OS_WIN
-HWND hwnd = reinterpret_cast<HWND>(this->winId());
-if (!hwnd) return;
-MARGINS margins = { -1,-1,-1,-1 };
-DwmExtendFrameIntoClientArea(hwnd, &margins);
-int micaType = 2;
-DwmSetWindowAttribute(hwnd, 38, &micaType, sizeof(micaType));
-DWORD value = 1; DWORD size = sizeof(value);
-BOOL useDark = TRUE;
-if (RegGetValueW(HKEY_CURRENT_USER, L"Software\\Microsoft\\Windows\\CurrentVersion\\Themes\\Personalize", L"AppsUseLightTheme", RRF_RT_DWORD, NULL, &value, &size) == ERROR_SUCCESS)
-useDark = (value == 0) ? TRUE : FALSE;
-DwmSetWindowAttribute(hwnd, 20, &useDark, sizeof(useDark));
-SetWindowPos(hwnd, NULL, 0,0,0,0, SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
-#endif
-}
 void reject() override {
 commit(); QDialog::reject();
 }
@@ -298,7 +273,7 @@ class MicaWindow :public QMainWindow {
   public:
 	MicaWindow(QWidget *parent = nullptr) :QMainWindow(parent) {
 		setWindowTitle("MB 评测器");
-		resize(780,580);
+		resize(920,680);
 		setAttribute(Qt::WA_TranslucentBackground);
 		setAttribute(Qt::WA_OpaquePaintEvent);
 		m_settings = loadSettings();
@@ -313,8 +288,26 @@ class MicaWindow :public QMainWindow {
 
 		m_cardWidget = new CardWidget(this);
 		QVBoxLayout *cardLayout = new QVBoxLayout(m_cardWidget);
-		cardLayout->setContentsMargins(10,10,10,10);
-		cardLayout->setSpacing(4);
+		cardLayout->setContentsMargins(16,14,16,12);
+		cardLayout->setSpacing(8);
+
+		// 标题头 (现代应用布局: 标题 + 副标题)
+		QHBoxLayout *titleRow = new QHBoxLayout();
+		titleRow->setSpacing(8);
+		QLabel *titleLabel = new QLabel("MB 评测器",this);
+		QFont titleFont = titleLabel->font();
+		titleFont.setPointSize(titleFont.pointSize() + 4);
+		titleFont.setBold(true);
+		titleLabel->setFont(titleFont);
+		QLabel *subTitleLabel = new QLabel("本地 C++ OJ 评测器",this);
+		QPalette subPal = subTitleLabel->palette();
+		subPal.setColor(QPalette::WindowText, QColor(130,130,130));
+		subTitleLabel->setPalette(subPal);
+		titleRow->addWidget(titleLabel);
+		titleRow->addSpacing(6);
+		titleRow->addWidget(subTitleLabel);
+		titleRow->addStretch();
+		cardLayout->addLayout(titleRow);
 
 		m_outputEdit = new QTextEdit(this);
 		m_outputEdit->setReadOnly(true);
@@ -322,7 +315,9 @@ class MicaWindow :public QMainWindow {
 		m_outputEdit->verticalScrollBar()->setSingleStep(m_outputEdit->fontMetrics().height());
 
 		QHBoxLayout *pathLayout = new QHBoxLayout();
-		pathLayout->setSpacing(4);
+		pathLayout->setSpacing(6);
+		QLabel *srcLabel = new QLabel("源文件:",this);
+		pathLayout->addWidget(srcLabel);
 		m_filePathEdit = new CustomLineEdit(this);
 		m_filePathEdit->setPlaceholderText("请选择 .cpp 源文件");
 		m_filePathEdit->setReadOnly(false);
@@ -333,7 +328,7 @@ class MicaWindow :public QMainWindow {
 				m_runBtn->setEnabled(true);
 			}
 		});
-		m_browseBtn = new QPushButton("📁 浏览",this);
+		m_browseBtn = new QPushButton("浏览",this);
 		m_browseBtn->setToolTip("使用文件资源管理器选择文件.");
 		connect(m_browseBtn,&QPushButton::clicked,this,[this]() {
 			QString file = QFileDialog::getOpenFileName(this,"选择 C++ 源文件","","C++ 文件 (*.cpp);;所有文件 (*.*)");
@@ -366,8 +361,8 @@ class MicaWindow :public QMainWindow {
 			"(aaa-N.in / aaa-N.out 或 aaa_N.in / aaa_N.out, N=1..100),\n"
 			"逐个评测并输出汇总表格与综合评价.");
 		m_runBtn->setEnabled(false);
-		m_settingsBtn = new QPushButton("⚙ 设置",this);
-		m_settingsBtn->setToolTip("打开设置 (参考机因子/硬线比例/热键/UI 美观).");
+		m_settingsBtn = new QPushButton("设置",this);
+		m_settingsBtn->setToolTip("打开设置 (参考机因子/硬线比例/热键).");
 		connect(m_settingsBtn,&QPushButton::clicked,this,[this]() { openSettings(); });
 		connect(m_runBtn,&QPushButton::clicked,this,[this]() {
 			if (m_currentSource.isEmpty()) return;
@@ -429,7 +424,6 @@ class MicaWindow :public QMainWindow {
 		paramLayout->addWidget(coreLabel);
 		paramLayout->addWidget(m_coreEdit);
 		paramLayout->addStretch();
-		paramLayout->addWidget(m_runBtn);
 
 		QHBoxLayout *limitLayout = new QHBoxLayout();
 		limitLayout->setSpacing(4);
@@ -471,13 +465,20 @@ class MicaWindow :public QMainWindow {
 		limitLayout->addWidget(refLabel);
 		limitLayout->addWidget(m_refFactorEdit);
 		limitLayout->addStretch();
-		limitLayout->addWidget(m_calibBtn);
-		limitLayout->addWidget(m_settingsBtn);
 
-		cardLayout->addWidget(m_outputEdit,1);
 		cardLayout->addLayout(pathLayout);
-		cardLayout->addLayout(limitLayout);
 		cardLayout->addLayout(paramLayout);
+		cardLayout->addLayout(limitLayout);
+		cardLayout->addWidget(m_outputEdit,1);
+
+		// 操作按钮聚拢右下角 (次要动作在左, 主动作在右)
+		QHBoxLayout *buttonRow = new QHBoxLayout();
+		buttonRow->setSpacing(8);
+		buttonRow->addStretch();
+		buttonRow->addWidget(m_calibBtn);
+		buttonRow->addWidget(m_settingsBtn);
+		buttonRow->addWidget(m_runBtn);
+		cardLayout->addLayout(buttonRow);
 		mainLayout->addWidget(m_cardWidget);
 
 		QString exeDir = QCoreApplication::applicationDirPath();

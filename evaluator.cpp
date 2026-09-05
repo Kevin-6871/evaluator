@@ -5,6 +5,9 @@
 #include <QFileInfo>
 #include <QProcess>
 #include <QTextStream>
+#include <QDateTime>
+#include <QRandomGenerator>
+#include <QStandardPaths>
 
 #include "md.hpp"
 
@@ -127,16 +130,38 @@ return out;
 
 } // anonymous namespace
 
+// 评测工作目录: 与设置持久化同一"双思路", 优先当前目录 ./evaluator_work_XXXX, 不可写回退 AppData, 最后回退系统临时目录
+static QString makeWorkDir() {
+const QString suffix = QString::number(QDateTime::currentMSecsSinceEpoch() % 1000000000)
++ "_" + QString::number(QRandomGenerator::global()->bounded(1000000));
+{
+const QString local = QDir::currentPath() + "/evaluator_work_" + suffix;
+if (QDir().mkpath(local)) {
+QFile probe(local + "/.w");
+if (probe.open(QIODevice::WriteOnly)) {
+probe.close();
+QFile::remove(local + "/.w");
+return local + "/";
+}
+}
+}
+{
+const QString appData = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/evaluator_work_" + suffix;
+if (QDir().mkpath(appData)) return appData + "/";
+}
+const QString tmp = QDir::tempPath() + "/evaluator_fallback/";
+QDir().mkpath(tmp);
+return tmp;
+}
+
 EvaluatorCore::EvaluatorCore(const QString &exeDir)
-: m_exeDir(exeDir), m_tempDir("evaluator_"),
+: m_exeDir(exeDir), m_testDir(makeWorkDir()),
   m_wrapperReady(false), m_wrapperCore(-2),
   m_wrapperCpuLimitMs(-1.0), m_wrapperWallLimitMs(-1.0) {
-if (m_tempDir.isValid()) {
-m_testDir = m_tempDir.path() + "/";
-} else {
-m_testDir = QDir::tempPath() + "/evaluator_fallback/";
-QDir().mkpath(m_testDir);
 }
+
+EvaluatorCore::~EvaluatorCore() {
+QDir(m_testDir).removeRecursively();
 }
 
 QString EvaluatorCore::resolveCompiler() {

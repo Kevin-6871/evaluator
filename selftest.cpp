@@ -177,9 +177,9 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 
 		if (isExpected(name, verdict, cpu, mem, multiGroup)) {
 			pass++;
-			line += QString("     → 通过\n");
+			line += QString("     -> 通过\n");
 		} else {
-			line += QString("     → 未达到预期\n");
+			line += QString("     -> 未达到预期\n");
 		}
 		report += line;
 	}
