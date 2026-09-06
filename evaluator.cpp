@@ -6,6 +6,7 @@
 #include <QProcess>
 #include <QTextStream>
 #include <QDateTime>
+#include <QCoreApplication>
 #include <QRandomGenerator>
 #include <QStandardPaths>
 
@@ -135,13 +136,15 @@ static QString makeWorkDir() {
 const QString suffix = QString::number(QDateTime::currentMSecsSinceEpoch() % 1000000000)
 + "_" + QString::number(QRandomGenerator::global()->bounded(1000000));
 {
-const QString local = QDir::currentPath() + "/evaluator_work_" + suffix;
+if (QCoreApplication::instance()) {
+const QString local = QCoreApplication::applicationDirPath() + "/evaluator_work_" + suffix;
 if (QDir().mkpath(local)) {
 QFile probe(local + "/.w");
 if (probe.open(QIODevice::WriteOnly)) {
 probe.close();
 QFile::remove(local + "/.w");
 return local + "/";
+}
 }
 }
 }

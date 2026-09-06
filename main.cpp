@@ -34,6 +34,8 @@
 #include <QShortcut>
 #include <QCheckBox>
 #include <QSlider>
+#include <QListWidget>
+#include <QStackedWidget>
 
 #ifdef Q_OS_WIN
 #include <windows.h>
@@ -61,7 +63,7 @@ class CustomLineEdit :public QLineEdit {
   private:
 	void updateHeight() {
 		QFontMetrics fm(font());
-		setFixedHeight(fm.height() + 8);
+		setFixedHeight(fm.height() + 6);
 	}
 };
 
@@ -187,37 +189,52 @@ setWindowFlags(Qt::Dialog | Qt::WindowCloseButtonHint);
 setWindowModality(Qt::NonModal);
 
 QVBoxLayout *root = new QVBoxLayout(this);
-root->setContentsMargins(12,12,12,12);
-root->setSpacing(8);
+root->setContentsMargins(10,10,10,8);
+root->setSpacing(6);
 
-QGroupBox *g1 = new QGroupBox("评测参数", this);
-QFormLayout *f1 = new QFormLayout(g1);
-m_refFactorSpin = new QDoubleSpinBox(g1);
+// 现代风格: 左侧导航 + 右侧内容
+QHBoxLayout *body = new QHBoxLayout();
+body->setSpacing(8);
+m_navList = new QListWidget(this);
+m_navList->setFixedWidth(140);
+m_navList->addItem("评测参数");
+m_navList->addItem("热键");
+body->addWidget(m_navList);
+
+m_stack = new QStackedWidget(this);
+QWidget *page1 = new QWidget(this);
+QFormLayout *f1 = new QFormLayout(page1);
+f1->setContentsMargins(8,6,8,6);
+m_refFactorSpin = new QDoubleSpinBox(page1);
 m_refFactorSpin->setRange(0.1, 100.0); m_refFactorSpin->setDecimals(2);
 m_refFactorSpin->setValue(m_data->refFactor);
 f1->addRow("参考机因子 (IPC×GHz):", m_refFactorSpin);
-m_tleHardSpin = new QDoubleSpinBox(g1);
+m_tleHardSpin = new QDoubleSpinBox(page1);
 m_tleHardSpin->setRange(0.1, 10.0); m_tleHardSpin->setDecimals(2);
 m_tleHardSpin->setValue(m_data->tleHardScale);
 f1->addRow("TLE 硬线比例:", m_tleHardSpin);
-m_memHardSpin = new QDoubleSpinBox(g1);
+m_memHardSpin = new QDoubleSpinBox(page1);
 m_memHardSpin->setRange(0.1, 10.0); m_memHardSpin->setDecimals(2);
 m_memHardSpin->setValue(m_data->memHardScale);
 f1->addRow("MEM 硬线比例:", m_memHardSpin);
-root->addWidget(g1);
+m_stack->addWidget(page1);
 
-QGroupBox *g2 = new QGroupBox("热键", this);
-QFormLayout *f2 = new QFormLayout(g2);
-m_runHotEdit = new QKeySequenceEdit(g2);
+QWidget *page2 = new QWidget(this);
+QFormLayout *f2 = new QFormLayout(page2);
+f2->setContentsMargins(8,6,8,6);
+m_runHotEdit = new QKeySequenceEdit(page2);
 m_runHotEdit->setKeySequence(QKeySequence(m_data->runHotkey));
 f2->addRow("开始评测:", m_runHotEdit);
-m_browseHotEdit = new QKeySequenceEdit(g2);
+m_browseHotEdit = new QKeySequenceEdit(page2);
 m_browseHotEdit->setKeySequence(QKeySequence(m_data->browseHotkey));
 f2->addRow("浏览文件:", m_browseHotEdit);
-m_settingsHotEdit = new QKeySequenceEdit(g2);
+m_settingsHotEdit = new QKeySequenceEdit(page2);
 m_settingsHotEdit->setKeySequence(QKeySequence(m_data->settingsHotkey));
 f2->addRow("打开设置:", m_settingsHotEdit);
-root->addWidget(g2);
+m_stack->addWidget(page2);
+
+body->addWidget(m_stack, 1);
+root->addLayout(body);
 
 QHBoxLayout *btns = new QHBoxLayout();
 QPushButton *defBtn = new QPushButton("恢复默认", this);
@@ -225,8 +242,9 @@ QPushButton *closeBtn = new QPushButton("关闭", this);
 btns->addWidget(defBtn); btns->addStretch(); btns->addWidget(closeBtn);
 root->addLayout(btns);
 
-setFixedSize(560, 380);
-
+setFixedSize(640, 380);
+m_navList->setCurrentRow(0);
+connect(m_navList, &QListWidget::currentRowChanged, m_stack, &QStackedWidget::setCurrentIndex);
 connect(defBtn, &QPushButton::clicked, this, [this]() {
 SettingsData d;
 m_refFactorSpin->setValue(d.refFactor);
@@ -261,6 +279,8 @@ commit(); QDialog::reject();
 
   private:
 SettingsData *m_data;
+QListWidget *m_navList;
+QStackedWidget *m_stack;
 QDoubleSpinBox *m_refFactorSpin;
 QDoubleSpinBox *m_tleHardSpin;
 QDoubleSpinBox *m_memHardSpin;
@@ -288,26 +308,8 @@ class MicaWindow :public QMainWindow {
 
 		m_cardWidget = new CardWidget(this);
 		QVBoxLayout *cardLayout = new QVBoxLayout(m_cardWidget);
-		cardLayout->setContentsMargins(16,14,16,12);
-		cardLayout->setSpacing(8);
-
-		// 标题头 (现代应用布局: 标题 + 副标题)
-		QHBoxLayout *titleRow = new QHBoxLayout();
-		titleRow->setSpacing(8);
-		QLabel *titleLabel = new QLabel("MB 评测器",this);
-		QFont titleFont = titleLabel->font();
-		titleFont.setPointSize(titleFont.pointSize() + 4);
-		titleFont.setBold(true);
-		titleLabel->setFont(titleFont);
-		QLabel *subTitleLabel = new QLabel("本地 C++ OJ 评测器",this);
-		QPalette subPal = subTitleLabel->palette();
-		subPal.setColor(QPalette::WindowText, QColor(130,130,130));
-		subTitleLabel->setPalette(subPal);
-		titleRow->addWidget(titleLabel);
-		titleRow->addSpacing(6);
-		titleRow->addWidget(subTitleLabel);
-		titleRow->addStretch();
-		cardLayout->addLayout(titleRow);
+		cardLayout->setContentsMargins(10,8,10,8);
+		cardLayout->setSpacing(4);
 
 		m_outputEdit = new QTextEdit(this);
 		m_outputEdit->setReadOnly(true);
@@ -315,7 +317,7 @@ class MicaWindow :public QMainWindow {
 		m_outputEdit->verticalScrollBar()->setSingleStep(m_outputEdit->fontMetrics().height());
 
 		QHBoxLayout *pathLayout = new QHBoxLayout();
-		pathLayout->setSpacing(6);
+		pathLayout->setSpacing(4);
 		QLabel *srcLabel = new QLabel("源文件:",this);
 		pathLayout->addWidget(srcLabel);
 		m_filePathEdit = new CustomLineEdit(this);
