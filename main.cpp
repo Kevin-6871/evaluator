@@ -45,7 +45,6 @@
 
 #include "md.hpp"
 #include "evaluator.hpp"
-#include "selftest.hpp"
 
 // ==================== 1. DPI 自适应文本框 ====================
 class CustomLineEdit :public QLineEdit {
@@ -654,20 +653,6 @@ int main(int argc,char *argv[]) {
 	QFont appFont = app.font();
 	appFont.setFamilies({"Cascadia Code","Consolas","Microsoft YaHei UI"});
 	app.setFont(appFont);
-
-	// ==================== 无头自测模式 ====================
-	if (argc > 1 && QString(argv[1]) == "--selftest") {
-		QString root = (argc > 2) ? QString(argv[2]) :QString("testcases");
-		QString report;
-		int casesFound = 0;
-		int pass = selftest::runAll(root,report,casesFound);
-		FILE* log = fopen("selftest_result.txt","w");
-		if (log) {
-			fprintf(log,"%s",report.toLocal8Bit().constData());
-			fclose(log);
-		}
-		return (casesFound > 0 && pass == casesFound) ? 0 :1;
-	}
 
 	MicaWindow w;
 	w.show();

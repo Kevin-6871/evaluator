@@ -12,7 +12,7 @@
 - **自适应宽度表格**：评测结果以表格输出，列宽随内容自适应（CJK 按双列宽计）。
 - **设置子窗口 + 持久化**：参考机因子、TLE/MEM 硬线比例、热键等配置持久化到 `./mboj_config.json`（当前目录不可写时回退 `%AppData%`，双写镜像、按 `savedAt` 取较新者同步）。
 - **Mica 界面**：主窗口使用 Windows 11 Mica 背景 + 半透卡片。
-- **无头自测**：`--selftest` 遍历 `testcases/` 自动回归评测链路。
+- **独立 selftest 工具**：`agent-use/selftest.exe`（静态链接、内嵌用例）可脱离 GUI 回归评测链路。
 
 ## 构建
 
@@ -55,13 +55,16 @@ aaa-100.in aaa_100.out    # 最多 100 组
 
 配置写入 `./mboj_config.json`；若当前目录不可写则回退 `%AppData%`，两处双写、取较新者同步。
 
-## 无头自测
+## 独立 selftest 工具
+
+静态链接、内嵌测试用例的 `selftest.exe`（位于 `agent-use/selftest-package/`），可在任意 Win10+ 设备直接运行并生成结果 log：
 
 ```powershell
-QT.exe --selftest testcases
+selftest.exe --self-contained            # 用内嵌用例, 当前目录生成 selftest_result.txt
+selftest.exe <用例目录>                  # 或指定目录
 ```
 
-遍历 `testcases/` 下各用例目录（多组与单样例），覆盖编译错误(CE)、计时链路、TLE-CPU、TLE-WALL、MLE、AC/WA 等判定；退出码 0 表示全部通过。
+退出码 0 表示全部通过；目标设备需可用的 g++（`toolchain/bin/g++.exe` 或 PATH）。
 
 ## 目录结构
 
