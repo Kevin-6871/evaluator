@@ -5,11 +5,11 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: 'Release 的 Git 标签（例如 v1.0.0，务必与现有或期望的标签一致）'
+        description: 'Release 的 Tag 标签 (v x.x.x)'
         required: true
         default: 'manual-release'
       release_name:
-        description: 'Release 标题（留空则自动使用 tag）'
+        description: 'Release 标题(可选)'
         required: false
         default: ''
   # tag 推送时自动触发
