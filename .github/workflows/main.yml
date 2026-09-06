@@ -19,7 +19,6 @@ jobs:
   build:
     name: Build with MSVC 2022
     runs-on: windows-2022
-    # 授予创建 Release 所需的权限
     permissions:
       contents: write
 
@@ -84,6 +83,36 @@ jobs:
             }
           }
 
+      # 重命名可执行文件并打包为 zip 和 7z
+      - name: Prepare release archives
+        shell: pwsh
+        run: |
+          $releaseDir = "$env:RELEASE_DIR"
+          $targetExe = "evaluator.exe"
+          # 重命名 QT.exe -> evaluator.exe
+          Rename-Item -Path (Join-Path $releaseDir "$env:EXE_NAME") -NewName $targetExe -Force
+
+          # 创建 zip 压缩包
+          $zipFile = "evaluator-windows-x64.zip"
+          Compress-Archive -Path "$releaseDir\*" -DestinationPath $zipFile -CompressionLevel Optimal -Force
+
+          # 创建 7z 压缩包 (使用 7z 命令行)
+          $7zFile = "evaluator-windows-x64.7z"
+          # 检查 7z.exe 路径 (通常在 Program Files 或已被加入 PATH)
+          $7zPath = (Get-Command 7z -ErrorAction SilentlyContinue).Source
+          if (-not $7zPath) {
+            $7zPath = "C:\Program Files\7-Zip\7z.exe"
+          }
+          if (Test-Path $7zPath) {
+            & $7zPath a -t7z -mx=9 $7zFile "$releaseDir\*" -r
+          } else {
+            Write-Host "::warning::7z not found, skipping 7z archive."
+          }
+
+          # 将压缩包路径存入环境变量，供后续上传使用
+          echo "ZIP_FILE=$zipFile" >> $env:GITHUB_ENV
+          echo "SEVENZ_FILE=$7zFile" >> $env:GITHUB_ENV
+
       - name: Upload artifact (for debugging)
         uses: actions/upload-artifact@v4
         with:
@@ -115,8 +144,9 @@ jobs:
           name: ${{ github.event.inputs.release_name || github.event.inputs.tag || github.ref_name }}
           body: ${{ steps.read_body.outputs.BODY }}
           files: |
-            ${{ env.RELEASE_DIR }}/*
+            ${{ env.ZIP_FILE }}
+            ${{ env.SEVENZ_FILE }}
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
-          # overwrite: true  # 如需覆盖已存在的 Release，取消注释
+          # overwrite: true
