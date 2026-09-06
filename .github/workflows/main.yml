@@ -1,15 +1,15 @@
 name: Windows Build & Release
 
 on:
-  # 手动触发，可指定 Release 名称和说明
+  # 手动触发，需要输入 tag 和可选的 release 名称
   workflow_dispatch:
     inputs:
+      tag:
+        description: 'Release 的 Git 标签（例如 v1.0.0，务必与现有或期望的标签一致）'
+        required: true
+        default: 'manual-release'
       release_name:
-        description: 'Release 名称（留空则使用 tag 或自动生成）'
-        required: false
-        default: ''
-      release_body:
-        description: 'Release 详细说明（支持多行）'
+        description: 'Release 标题（留空则自动使用 tag）'
         required: false
         default: ''
   # tag 推送时自动触发
@@ -40,7 +40,6 @@ jobs:
           version: ${{ env.QT_VERSION }}
           arch: ${{ env.QT_ARCH }}
           setup-python: false
-          # 移除废弃的 cached 参数
 
       - name: Setup MSVC 2022
         uses: ilammy/msvc-dev-cmd@v1
@@ -58,7 +57,6 @@ jobs:
         run: |
           New-Item -ItemType Directory -Force -Path $env:RELEASE_DIR | Out-Null
           Copy-Item -Path "release\$env:EXE_NAME" -Destination $env:RELEASE_DIR -Force
-          # 复制依赖（windeployqt 将在下一步处理）
           echo "RELEASE_DIR=$env:RELEASE_DIR" >> $env:GITHUB_ENV
 
       - name: Deploy dependencies with windeployqt
@@ -85,24 +83,44 @@ jobs:
             }
           }
 
-      # 上传构建产物作为 Artifact（用于调试或后续使用）
-      - name: Upload artifact
+      - name: Upload artifact (for debugging)
         uses: actions/upload-artifact@v4
         with:
           name: QtBuild-Windows-msvc2022
           path: ${{ env.RELEASE_DIR }}
 
-      # 发布到 GitHub Release
+      # ---------- 读取 Release 说明文件 ----------
+      - name: Read release body from explain.txt
+        id: read_body
+        shell: pwsh
+        run: |
+          $bodyFile = "./explain.txt"
+          if (Test-Path $bodyFile) {
+            $content = Get-Content $bodyFile -Raw
+            # 写入 GITHUB_OUTPUT 以支持多行
+            echo "BODY<<EOF" >> $env:GITHUB_OUTPUT
+            echo "$content" >> $env:GITHUB_OUTPUT
+            echo "EOF" >> $env:GITHUB_OUTPUT
+          } else {
+            Write-Host "::warning::explain.txt not found, using empty body."
+            echo "BODY=" >> $env:GITHUB_OUTPUT
+          }
+
+      # ---------- 创建 Release 并上传资产 ----------
       - name: Create Release and Upload Assets
         uses: softprops/action-gh-release@v2
+        # 手动触发时要求 tag 输入不为空；tag 推送时自动触发
         if: |
-          (github.event_name == 'workflow_dispatch' && github.event.inputs.release_name != '') ||
+          (github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '') ||
           startsWith(github.ref, 'refs/tags/')
         with:
-          name: ${{ github.event.inputs.release_name || github.ref_name }}
-          body: ${{ github.event.inputs.release_body || '' }}
+          tag_name: ${{ github.event.inputs.tag || github.ref_name }}
+          name: ${{ github.event.inputs.release_name || github.event.inputs.tag || github.ref_name }}
+          body: ${{ steps.read_body.outputs.BODY }}
           files: |
             ${{ env.RELEASE_DIR }}/*
           token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
+          # 如果希望覆盖同名已存在的 Release，取消下面注释：
+          # overwrite: true
