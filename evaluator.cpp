@@ -172,6 +172,11 @@ QString EvaluatorCore::resolveCompiler() {
 for (const char* cand : COMPILER_CANDIDATES) {
 if (QFileInfo::exists(cand)) return QString::fromLocal8Bit(cand);
 }
+// 便携: 与可执行文件同级的 toolchain/bin/g++.exe
+if (QCoreApplication::instance()) {
+const QString bundled = QCoreApplication::applicationDirPath() + "/toolchain/bin/g++.exe";
+if (QFileInfo::exists(bundled)) return bundled;
+}
 #endif
 return QString("g++");
 }
@@ -354,7 +359,7 @@ out << wrapperCode;
 wrapperFile.close();
 
 QString compileOut;
-if (!compile(m_testDir + "wrapper.cpp", QString(), compileOut, "wrapper")) {
+if (!compile(m_testDir + "wrapper.cpp", QStringLiteral("-static"), compileOut, "wrapper")) {
 output += "包装程序编译失败:\n" + compileOut;
 return false;
 }

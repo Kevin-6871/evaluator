@@ -113,7 +113,7 @@ int runAll(const QString &root, QString &report, int &casesFound) {
 		total++;
 		casesFound++;
 		QString src = fdir.filePath(cpps.first());
-		QString flags = "-std=c++17 -O2 -Wall";
+		QString flags = "-std=c++17 -O2 -Wall -static";
 
 		EvaluatorCore core(folder + "/");
 		QString line;
