@@ -249,7 +249,7 @@ if ($pathsToAdd.Count -gt 0) {
 $ProjectFile = "..\QT.pro"
 $ExeName = "QT.exe"
 $BuildDir = "build_release"
-$ReleaseDir = Join-Path (Get-Location) "rele"
+$ReleaseDir = Join-Path (Get-Location) "..\QT-rele"
 
 # ==========================================================
 # 第1步：清理之前的构建和发布目录
